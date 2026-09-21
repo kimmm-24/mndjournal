@@ -1,4 +1,4 @@
-import { bad, handler, ok, requireValue } from "@/server/api";
+import { bad, currentUserId, handler, ok, requireValue } from "@/server/api";
 import {
   connectionKey,
   connections,
@@ -10,9 +10,13 @@ import { MarketDataError } from "@/server/market-data/provider";
 
 import { providerInfo } from "@/lib/market-providers";
 
-export const GET = handler(() => ok({ connections: connections() }));
+export const GET = handler(async () => {
+  const userId = await currentUserId();
+  return ok({ connections: connections(userId) });
+});
 
 export const POST = handler(async (request: Request) => {
+  const userId = await currentUserId();
   const body = await request.json();
   requireValue(body && typeof body.provider === "string", "Choose a market data provider.");
   requireValue(
@@ -27,16 +31,17 @@ export const POST = handler(async (request: Request) => {
       saveConnection(
         provider.id,
         validateCredentials(provider.id, body.credentials ?? { apiKey: body.apiKey }),
+        userId,
       );
     } else if (body.action === "enable") {
       requireValue(
         info.mode === "public",
         "Only public sources can be enabled without credentials.",
       );
-      saveConnection(provider.id, "enabled");
-    } else if (body.action === "remove") saveConnection(provider.id, null);
-    else await provider.test(connectionKey(provider.id));
-    return ok({ connections: connections(), tested: body.action === "test" });
+      saveConnection(provider.id, "enabled", userId);
+    } else if (body.action === "remove") saveConnection(provider.id, null, userId);
+    else await provider.test(connectionKey(provider.id, userId), userId);
+    return ok({ connections: connections(userId), tested: body.action === "test" });
   } catch (error) {
     if (error instanceof MarketDataError) return bad(error.message, 400);
     throw error;

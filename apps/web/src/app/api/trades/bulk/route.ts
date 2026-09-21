@@ -1,6 +1,6 @@
-import { eq, inArray } from "drizzle-orm";
-import { db, trades } from "@/db";
-import { bad, handler, ok } from "@/server/api";
+import { and, eq, inArray } from "drizzle-orm";
+import { db, playbooks, trades } from "@/db";
+import { bad, currentUserId, handler, ok } from "@/server/api";
 import { deleteExecutionsForTrades } from "@/server/executions";
 import { nowIso } from "@/server/ids";
 
@@ -12,16 +12,18 @@ interface BulkBody {
 }
 
 export const POST = handler(async (request: Request) => {
+  const userId = await currentUserId();
   const body = (await request.json()) as BulkBody;
   if (!Array.isArray(body.keys) || body.keys.length === 0) return bad("keys are required");
-  const rows = db.select().from(trades).where(inArray(trades.key, body.keys)).all();
+  const owned = and(inArray(trades.key, body.keys), eq(trades.userId, userId));
+  const rows = db.select().from(trades).where(owned).all();
 
   switch (body.action) {
     case "review":
     case "unreview":
       db.update(trades)
         .set({ reviewedAt: body.action === "review" ? nowIso() : null })
-        .where(inArray(trades.key, body.keys))
+        .where(owned)
         .run();
       return ok({ updated: rows.length });
     case "tag":
@@ -39,10 +41,17 @@ export const POST = handler(async (request: Request) => {
       return ok({ updated: rows.length });
     }
     case "playbook":
-      db.update(trades)
-        .set({ playbookId: body.playbookId ?? null })
-        .where(inArray(trades.key, body.keys))
-        .run();
+      if (
+        body.playbookId &&
+        !db
+          .select({ id: playbooks.id })
+          .from(playbooks)
+          .where(and(eq(playbooks.id, body.playbookId), eq(playbooks.userId, userId)))
+          .get()
+      ) {
+        return bad("Playbook not found", 404);
+      }
+      db.update(trades).set({ playbookId: body.playbookId ?? null }).where(owned).run();
       return ok({ updated: rows.length });
     case "delete": {
       const byAccount = new Map<string, string[]>();

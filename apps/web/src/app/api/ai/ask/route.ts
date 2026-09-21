@@ -9,7 +9,7 @@ import {
   computeMetrics,
   type BucketStats,
 } from "@luxalgo/journal-core";
-import { bad, handler, ok } from "@/server/api";
+import { bad, currentUserId, handler, ok } from "@/server/api";
 import { runAi } from "@/server/ai";
 import { getTimeZone } from "@/server/settings";
 import { queryTrades } from "@/server/trades-query";
@@ -29,11 +29,12 @@ const bucketBlock = (title: string, buckets: BucketStats[]): string =>
  * own aggregates. The same questions an agent can ask through the MCP tools.
  */
 export const POST = handler(async (request: Request) => {
+  const userId = await currentUserId();
   const { question } = (await request.json()) as { question?: string };
   if (!question) return bad("question is required");
-  const timeZone = getTimeZone();
+  const timeZone = getTimeZone(userId);
 
-  const { trades } = queryTrades();
+  const { trades } = queryTrades(undefined, userId);
   if (trades.length === 0) return bad("The journal is empty — import trades first");
   const m = computeMetrics(trades, { timeZone });
 
@@ -56,6 +57,8 @@ Cite the numbers you used. Under 200 words.
 ${context}
 
 Question: ${question}`,
+    1200,
+    userId,
   );
 
   return ok({ answer });

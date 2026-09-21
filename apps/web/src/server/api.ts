@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { AUTH_COOKIE, passwordConfigured, verifySession } from "./auth";
+import { headers } from "next/headers";
+import { cache } from "react";
+import { auth } from "./auth";
 
 export class RequestError extends Error {}
 export function requireValue(condition: unknown, message: string): asserts condition {
@@ -8,26 +9,32 @@ export function requireValue(condition: unknown, message: string): asserts condi
 }
 
 export const ok = (data: unknown, init?: ResponseInit) => {
-  const headers = new Headers(init?.headers);
-  if (!headers.has("Cache-Control")) headers.set("Cache-Control", "private, no-store");
-  return NextResponse.json(data, { ...init, headers });
+  const responseHeaders = new Headers(init?.headers);
+  if (!responseHeaders.has("Cache-Control")) responseHeaders.set("Cache-Control", "private, no-store");
+  return NextResponse.json(data, { ...init, headers: responseHeaders });
 };
 
 export const bad = (message: string, status = 400) =>
   NextResponse.json({ error: message }, { status });
 
-/** Route-handler wrapper: uniform error JSON instead of HTML 500 pages. */
+// Deduped per request: `handler`'s gate check and any `currentUserId()` call
+// inside a route body share this single database lookup.
+const getSession = cache(async () => auth.api.getSession({ headers: await headers() }));
+
+/** The signed-in user's id. Only valid inside a route wrapped by `handler`. */
+export const currentUserId = async (): Promise<string> => {
+  const session = await getSession();
+  requireValue(session, "Unauthorized");
+  return session.user.id;
+};
+
+/** Route-handler wrapper: the auth gate, plus uniform error JSON instead of HTML 500 pages. */
 export const handler =
-  <A extends unknown[]>(
-    fn: (...args: A) => Promise<Response> | Response,
-    options: { public?: boolean } = {},
-  ) =>
+  <A extends unknown[]>(fn: (...args: A) => Promise<Response> | Response) =>
   async (...args: A): Promise<Response> => {
     try {
-      if (!options.public && passwordConfigured()) {
-        const token = (await cookies()).get(AUTH_COOKIE)?.value;
-        if (!verifySession(token)) return bad("Unauthorized", 401);
-      }
+      const session = await getSession();
+      if (!session) return bad("Unauthorized", 401);
       return await fn(...args);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Internal error";

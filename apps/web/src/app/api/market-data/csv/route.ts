@@ -1,9 +1,13 @@
-import { bad, handler, ok, requireValue } from "@/server/api";
+import { bad, currentUserId, handler, ok, requireValue } from "@/server/api";
 import { csvDatasets, importCsvDataset, removeCsvDataset } from "@/server/market-data/csv";
 import { MAX_CSV_BYTES, parseMarketCsv } from "@/lib/market-csv";
 import { isResolution, RESOLUTIONS, type Resolution } from "@/lib/market-data";
-export const GET = handler(() => ok({ datasets: csvDatasets() }));
+export const GET = handler(async () => {
+  const userId = await currentUserId();
+  return ok({ datasets: csvDatasets(userId) });
+});
 export const POST = handler(async (request: Request) => {
+  const userId = await currentUserId();
   const reader = request.body?.getReader();
   requireValue(reader, "Provide a market CSV request.");
   let size = 0;
@@ -30,8 +34,8 @@ export const POST = handler(async (request: Request) => {
   );
   if (body.action === "remove") {
     requireValue(typeof body.id === "string" && body.id.length <= 80, "Choose a dataset.");
-    removeCsvDataset(body.id);
-    return ok({ datasets: csvDatasets() });
+    removeCsvDataset(body.id, userId);
+    return ok({ datasets: csvDatasets(userId) });
   }
   requireValue(typeof body.content === "string", "Choose a CSV file.");
   requireValue(
@@ -53,7 +57,7 @@ export const POST = handler(async (request: Request) => {
   );
   try {
     if (body.action === "import")
-      return ok({ id: importCsvDataset(body), datasets: csvDatasets() });
+      return ok({ id: importCsvDataset(body, userId), datasets: csvDatasets(userId) });
     const bars = parseMarketCsv(body.content, body.symbol, body.resolution);
     return ok({
       count: bars.length,

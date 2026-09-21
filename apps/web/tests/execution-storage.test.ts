@@ -7,6 +7,13 @@ import type { ImportedExecution } from "@luxalgo/journal-importers";
 const originalDir = process.env.JOURNAL_DATA_DIR;
 const scratch = mkdtempSync(join(tmpdir(), "journal-storage-test-"));
 process.env.JOURNAL_DATA_DIR = scratch;
+// Better Auth's session check needs a request scope for next/headers'
+// headers(), which a plain vitest call into a route handler doesn't have —
+// stub both so the route handlers below run as a fixed signed-in "test-user".
+vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
+vi.mock("@/server/auth", () => ({
+  auth: { api: { getSession: async () => ({ user: { id: "test-user" }, session: {} }) } },
+}));
 const { db, accounts, executions, trades } = await import("../src/db");
 const { insertExecutions } = await import("../src/server/executions");
 const { rebuildAccount } = await import("../src/server/rebuild");
@@ -37,7 +44,7 @@ beforeEach(() => {
   db.delete(executions).run();
   db.delete(accounts).run();
   db.insert(accounts)
-    .values({ id: "test", name: "Test", kind: "manual", createdAt: "2026-01-01" })
+    .values({ id: "test", userId: "test-user", name: "Test", kind: "manual", createdAt: "2026-01-01" })
     .run();
 });
 afterAll(() => {

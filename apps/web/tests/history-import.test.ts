@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -15,9 +15,16 @@ process.env.JOURNAL_DATA_DIR = scratch;
 const oldDb = new Database(join(scratch, "journal.db"));
 oldDb.exec(BOOTSTRAP_SQL.replace("  import_metadata_json TEXT,\n", ""));
 oldDb.exec(
-  "INSERT INTO accounts(id,name,kind,created_at) VALUES ('legacy','Existing','manual','2026-01-01')",
+  "INSERT INTO accounts(id,user_id,name,kind,created_at) VALUES ('legacy','','Existing','manual','2026-01-01')",
 );
 oldDb.close();
+// Better Auth's session check needs a request scope for next/headers'
+// headers(), which a plain vitest call into a route handler doesn't have —
+// stub both so the route handlers below run as a fixed signed-in "test-user".
+vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
+vi.mock("@/server/auth", () => ({
+  auth: { api: { getSession: async () => ({ user: { id: "test-user" }, session: {} }) } },
+}));
 const { db, accounts, executions, trades, settings } = await import("../src/db");
 const { insertExecutions } = await import("../src/server/executions");
 const { rebuildAccount } = await import("../src/server/rebuild");
@@ -39,7 +46,7 @@ beforeEach(() => {
   db.delete(settings).run();
   db.delete(accounts).where(eq(accounts.id, "test")).run();
   db.insert(accounts)
-    .values({ id: "test", name: "Test", kind: "import", createdAt: "2026-01-01" })
+    .values({ id: "test", userId: "test-user", name: "Test", kind: "import", createdAt: "2026-01-01" })
     .run();
 });
 afterAll(() => {
@@ -115,6 +122,7 @@ describe("history imports use the existing preview, commit and rebuild pipeline"
   it("does not replace reported zero fees or P&L with account defaults or multiplier recalculations", () => {
     db.insert(settings)
       .values({
+        userId: "test-user",
         key: "journalDefaults",
         value: JSON.stringify({
           feeRules: [{ id: "fee", accountId: "test", symbol: "", amount: 5, mode: "execution" }],
@@ -122,7 +130,7 @@ describe("history imports use the existing preview, commit and rebuild pipeline"
       })
       .run();
     db.insert(settings)
-      .values({ key: "multipliers", value: JSON.stringify({ AAPL: 100 }) })
+      .values({ userId: "test-user", key: "multipliers", value: JSON.stringify({ AAPL: 100 }) })
       .run();
     const parsed = parseHistory(
       `Position,Symbol,Direction,Open Time,Close Time,Entry Price,Exit Price,Quantity,PnL,Fees

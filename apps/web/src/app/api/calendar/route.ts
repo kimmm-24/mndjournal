@@ -1,14 +1,16 @@
 import { calendarMonthFromDays, dailyStats, dayKeyOf, readFilters } from "@luxalgo/journal-core";
+import { eq } from "drizzle-orm";
 import { accounts, db } from "@/db";
-import { handler, ok, requireValue } from "@/server/api";
+import { currentUserId, handler, ok, requireValue } from "@/server/api";
 import { getTimeZone } from "@/server/settings";
 import { queryTrades } from "@/server/trades-query";
 import { calendarInsights, calendarScope } from "@/lib/calendar-insights";
 
 /** Only compute the visible month, not every dashboard/report breakdown. */
 export const GET = handler(async (request: Request) => {
+  const userId = await currentUserId();
   const params = new URL(request.url).searchParams;
-  const timeZone = getTimeZone();
+  const timeZone = getTimeZone(userId);
   const today = dayKeyOf(new Date().toISOString(), timeZone);
   const year = Number(params.get("calYear") ?? today.slice(0, 4));
   const month = Number(params.get("calMonth") ?? today.slice(5, 7));
@@ -22,11 +24,12 @@ export const GET = handler(async (request: Request) => {
     "Choose a valid calendar month.",
   );
   const scope = calendarScope(readFilters(params), year, month);
-  const { trades } = queryTrades(scope);
+  const { trades } = queryTrades(scope, userId);
   const calendar = calendarMonthFromDays(dailyStats(trades, timeZone), year, month);
   const accountRows = db
     .select({ id: accounts.id, currency: accounts.currency })
     .from(accounts)
+    .where(eq(accounts.userId, userId))
     .all();
   const currencyByAccount = new Map(accountRows.map((account) => [account.id, account.currency]));
   const currencies = [

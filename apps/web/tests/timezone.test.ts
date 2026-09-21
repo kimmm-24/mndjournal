@@ -7,10 +7,23 @@ import { formatTimestamp, isTimeZone } from "../src/lib/timezone";
 
 const scratch = mkdtempSync(join(tmpdir(), "journal-timezone-"));
 vi.stubEnv("JOURNAL_DATA_DIR", scratch);
-vi.stubEnv("JOURNAL_PASSWORD", "");
-vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined }) }));
+// Better Auth's session check needs a request scope for next/headers'
+// headers(), which a plain vitest call into a route handler doesn't have —
+// stub both so the route handlers below run as a fixed signed-in "test-user".
+vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
+vi.mock("@/server/auth", () => ({
+  auth: { api: { getSession: async () => ({ user: { id: "test-user" }, session: {} }) } },
+}));
+const TEST_USER = "test-user";
 const { db, accounts, executions, trades, settings } = await import("../src/db");
-const { setSetting, getTimeZone, getImportTimeZone } = await import("../src/server/settings");
+const {
+  setSetting: setSettingRaw,
+  getTimeZone: getTimeZoneRaw,
+  getImportTimeZone: getImportTimeZoneRaw,
+} = await import("../src/server/settings");
+const setSetting = (key: string, value: string) => setSettingRaw(key, value, TEST_USER);
+const getTimeZone = () => getTimeZoneRaw(TEST_USER);
+const getImportTimeZone = () => getImportTimeZoneRaw(TEST_USER);
 const { POST: importFile } = await import("../src/app/api/import/route");
 const { GET: getSettings, PATCH: patchSettings } = await import("../src/app/api/settings/route");
 const { GET: stats } = await import("../src/app/api/stats/route");
@@ -42,7 +55,7 @@ beforeEach(() => {
   db.delete(settings).run();
   db.delete(accounts).run();
   db.insert(accounts)
-    .values({ id: "test", name: "Timezone test", kind: "import", createdAt: "2026-01-01" })
+    .values({ id: "test", userId: "test-user", name: "Timezone test", kind: "import", createdAt: "2026-01-01" })
     .run();
 });
 afterEach(() => vi.useRealTimers());

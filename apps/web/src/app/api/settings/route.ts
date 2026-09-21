@@ -1,6 +1,7 @@
+import { eq } from "drizzle-orm";
 import { db, accounts } from "@/db";
 import { rebuildAccount } from "@/server/rebuild";
-import { handler, ok, requireValue } from "@/server/api";
+import { currentUserId, handler, ok, requireValue } from "@/server/api";
 import {
   getMultipliers,
   getTimeZone,
@@ -15,14 +16,15 @@ import {
 import { AI_PROVIDERS, AI_PROVIDER_NAMES, isAiProvider, type AiProvider } from "@/lib/ai-settings";
 import { isTimeZone } from "@/lib/timezone";
 
-export const GET = handler(() =>
-  ok({
-    timeZone: getTimeZone(),
-    importTimeZone: getImportTimeZone(),
-    multipliers: getMultipliers(),
-    ...getAiSettings(),
-  }),
-);
+export const GET = handler(async () => {
+  const userId = await currentUserId();
+  return ok({
+    timeZone: getTimeZone(userId),
+    importTimeZone: getImportTimeZone(userId),
+    multipliers: getMultipliers(userId),
+    ...getAiSettings(userId),
+  });
+});
 
 interface SettingsBody {
   timeZone?: string;
@@ -36,11 +38,12 @@ interface SettingsBody {
 }
 
 export const PATCH = handler(async (request: Request) => {
+  const userId = await currentUserId();
   const body = (await request.json()) as SettingsBody;
   requireValue(body && typeof body === "object" && !Array.isArray(body), "Enter valid settings.");
   if (body.aiProvider !== undefined)
     requireValue(isAiProvider(body.aiProvider), "Choose Anthropic or OpenAI.");
-  const provider = body.aiProvider ?? getAiProvider();
+  const provider = body.aiProvider ?? getAiProvider(userId);
   if (body.aiModel !== undefined)
     requireValue(
       typeof body.aiModel === "string" &&
@@ -81,22 +84,27 @@ export const PATCH = handler(async (request: Request) => {
   db.transaction(() => {
     // A display-only change must not silently alter the legacy import default.
     if (body.timeZone !== undefined || body.importTimeZone !== undefined)
-      setSetting("importTimeZone", body.importTimeZone ?? getImportTimeZone());
-    if (body.timeZone !== undefined) setSetting("timeZone", body.timeZone);
+      setSetting("importTimeZone", body.importTimeZone ?? getImportTimeZone(userId), userId);
+    if (body.timeZone !== undefined) setSetting("timeZone", body.timeZone, userId);
   });
   if (body.multipliers !== undefined)
     db.transaction(() => {
-      setSetting("multipliers", JSON.stringify(body.multipliers));
-      for (const account of db.select({ id: accounts.id }).from(accounts).all())
+      setSetting("multipliers", JSON.stringify(body.multipliers), userId);
+      for (const account of db
+        .select({ id: accounts.id })
+        .from(accounts)
+        .where(eq(accounts.userId, userId))
+        .all())
         rebuildAccount(account.id);
     });
   db.transaction(() => {
     for (const id of AI_PROVIDERS) {
       const key = body[`${id}Key`];
-      if (key !== undefined) setAiKey(id, key);
+      if (key !== undefined) setAiKey(id, key, userId);
     }
-    if (body.aiProvider !== undefined) setSetting("aiProvider", body.aiProvider);
-    if (body.aiModel !== undefined) setSetting(aiModelSetting(provider), body.aiModel.trim());
+    if (body.aiProvider !== undefined) setSetting("aiProvider", body.aiProvider, userId);
+    if (body.aiModel !== undefined)
+      setSetting(aiModelSetting(provider), body.aiModel.trim(), userId);
   });
   return ok({ saved: true });
 });

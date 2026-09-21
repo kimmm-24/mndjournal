@@ -1,7 +1,7 @@
 import { tradeRisk, tradeR, plannedR } from "@luxalgo/journal-core";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db, trades, playbooks, accounts } from "@/db";
-import { bad, handler, ok, requireValue } from "@/server/api";
+import { bad, currentUserId, handler, ok, requireValue } from "@/server/api";
 import { deleteExecutionsForTrades, listExecutions } from "@/server/executions";
 import { nowIso } from "@/server/ids";
 import { getTradeByKey, rowToTrade } from "@/server/trades-query";
@@ -10,13 +10,14 @@ import { getTimeZone } from "@/server/settings";
 type Params = { params: Promise<{ key: string }> };
 
 export const GET = handler(async (_request: Request, { params }: Params) => {
+  const userId = await currentUserId();
   const { key } = await params;
-  const row = getTradeByKey(key);
+  const row = getTradeByKey(key, userId);
   if (!row) return bad("Trade not found", 404);
   const trade = rowToTrade(row);
   const fills = listExecutions(row.accountId, trade.executionIds);
   return ok({
-    timeZone: getTimeZone(),
+    timeZone: getTimeZone(userId),
     trade: {
       ...row,
       status: trade.status,
@@ -47,9 +48,10 @@ interface AnnotateBody {
 }
 
 export const PATCH = handler(async (request: Request, { params }: Params) => {
+  const userId = await currentUserId();
   const { key } = await params;
   const decoded = key;
-  const row = getTradeByKey(decoded);
+  const row = getTradeByKey(decoded, userId);
   if (!row) return bad("Trade not found", 404);
 
   const body = (await request.json()) as AnnotateBody;
@@ -75,7 +77,12 @@ export const PATCH = handler(async (request: Request, { params }: Params) => {
       `Invalid ${field}.`,
     );
   requireValue(
-    !body.playbookId || db.select().from(playbooks).where(eq(playbooks.id, body.playbookId)).get(),
+    !body.playbookId ||
+      db
+        .select()
+        .from(playbooks)
+        .where(and(eq(playbooks.id, body.playbookId), eq(playbooks.userId, userId)))
+        .get(),
     "Playbook not found.",
   );
   const patch: Partial<typeof trades.$inferInsert> = {};
@@ -94,8 +101,9 @@ export const PATCH = handler(async (request: Request, { params }: Params) => {
 });
 
 export const DELETE = handler(async (_request: Request, { params }: Params) => {
+  const userId = await currentUserId();
   const { key } = await params;
-  const row = getTradeByKey(key);
+  const row = getTradeByKey(key, userId);
   if (!row) return bad("Trade not found", 404);
   // Deleting a trade means deleting its executions; the rebuild removes the row.
   deleteExecutionsForTrades(row.accountId, JSON.parse(row.executionIdsJson) as string[]);

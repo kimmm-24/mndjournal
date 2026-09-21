@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db, notes } from "@/db";
-import { bad, handler, ok } from "@/server/api";
+import { bad, currentUserId, handler, ok } from "@/server/api";
 import { nowIso } from "@/server/ids";
 
 type Params = { params: Promise<{ id: string }> };
@@ -13,8 +13,13 @@ interface PatchNoteBody {
 }
 
 export const PATCH = handler(async (request: Request, { params }: Params) => {
+  const userId = await currentUserId();
   const { id } = await params;
-  const existing = db.select().from(notes).where(eq(notes.id, id)).get();
+  const existing = db
+    .select()
+    .from(notes)
+    .where(and(eq(notes.id, id), eq(notes.userId, userId)))
+    .get();
   if (!existing) return bad("Note not found", 404);
   const body = (await request.json()) as PatchNoteBody;
   db.update(notes)
@@ -25,13 +30,16 @@ export const PATCH = handler(async (request: Request, { params }: Params) => {
       folderId: body.folderId ?? existing.folderId,
       updatedAt: nowIso(),
     })
-    .where(eq(notes.id, id))
+    .where(and(eq(notes.id, id), eq(notes.userId, userId)))
     .run();
   return ok({ updated: true });
 });
 
 export const DELETE = handler(async (_request: Request, { params }: Params) => {
+  const userId = await currentUserId();
   const { id } = await params;
-  db.delete(notes).where(eq(notes.id, id)).run();
+  db.delete(notes)
+    .where(and(eq(notes.id, id), eq(notes.userId, userId)))
+    .run();
   return ok({ deleted: true });
 });

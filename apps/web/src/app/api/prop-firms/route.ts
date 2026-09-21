@@ -1,14 +1,16 @@
-import { handler, ok, bad, requireValue } from "@/server/api";
+import { currentUserId, handler, ok, bad, requireValue } from "@/server/api";
 import { propData, propHistory, mutateProp, PropConflict } from "@/server/prop-firms";
-export const GET = handler((request: Request) => {
+export const GET = handler(async (request: Request) => {
+  const userId = await currentUserId();
   const params = new URL(request.url).searchParams;
   return ok(
     params.has("history")
-      ? { history: propHistory(params.get("type") ?? "", params.get("history")!) }
-      : propData(),
+      ? { history: propHistory(params.get("type") ?? "", params.get("history")!, userId) }
+      : propData(userId),
   );
 });
 export const POST = handler(async (request: Request) => {
+  const userId = await currentUserId();
   const reader = request.body?.getReader();
   requireValue(reader, "Provide a tracker action.");
   let size = 0;
@@ -35,7 +37,7 @@ export const POST = handler(async (request: Request) => {
     "Provide a tracker action.",
   );
   try {
-    return ok(mutateProp(body));
+    return ok(mutateProp(body, userId));
   } catch (error) {
     if (error instanceof PropConflict) return bad(error.message, 409);
     throw error;

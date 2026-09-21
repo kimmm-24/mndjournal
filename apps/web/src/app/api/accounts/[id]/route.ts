@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { accounts, db, executions, trades } from "@/db";
-import { bad, handler, ok } from "@/server/api";
+import { bad, currentUserId, handler, ok } from "@/server/api";
 import { rebuildAccount } from "@/server/rebuild";
 
 type Params = { params: Promise<{ id: string }> };
@@ -15,8 +15,13 @@ interface PatchBody {
 }
 
 export const PATCH = handler(async (request: Request, { params }: Params) => {
+  const userId = await currentUserId();
   const { id } = await params;
-  const account = db.select().from(accounts).where(eq(accounts.id, id)).get();
+  const account = db
+    .select()
+    .from(accounts)
+    .where(and(eq(accounts.id, id), eq(accounts.userId, userId)))
+    .get();
   if (!account) return bad("Account not found", 404);
 
   const body = (await request.json()) as PatchBody;
@@ -39,7 +44,14 @@ export const PATCH = handler(async (request: Request, { params }: Params) => {
 });
 
 export const DELETE = handler(async (_request: Request, { params }: Params) => {
+  const userId = await currentUserId();
   const { id } = await params;
+  const account = db
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(and(eq(accounts.id, id), eq(accounts.userId, userId)))
+    .get();
+  if (!account) return bad("Account not found", 404);
   db.transaction((tx) => {
     tx.delete(trades).where(eq(trades.accountId, id)).run();
     tx.delete(executions).where(eq(executions.accountId, id)).run();

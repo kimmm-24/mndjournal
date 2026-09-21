@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { ImportedExecution } from "@luxalgo/journal-importers";
 import { accounts, db } from "@/db";
 import { insertExecutions } from "./executions";
@@ -170,9 +170,13 @@ export interface DemoResult {
   alreadyLoaded: boolean;
 }
 
-/** Idempotent: a second call returns the existing demo account untouched. */
-export const loadDemoData = (): DemoResult => {
-  const existing = db.select().from(accounts).where(eq(accounts.broker, DEMO_BROKER)).get();
+/** Idempotent: a second call returns the caller's existing demo account untouched. */
+export const loadDemoData = (userId: string): DemoResult => {
+  const existing = db
+    .select()
+    .from(accounts)
+    .where(and(eq(accounts.broker, DEMO_BROKER), eq(accounts.userId, userId)))
+    .get();
   if (existing) {
     if (existing.archivedAt)
       db.update(accounts).set({ archivedAt: null }).where(eq(accounts.id, existing.id)).run();
@@ -183,6 +187,7 @@ export const loadDemoData = (): DemoResult => {
   db.insert(accounts)
     .values({
       id,
+      userId,
       name: "Demo data",
       broker: DEMO_BROKER,
       kind: "import",

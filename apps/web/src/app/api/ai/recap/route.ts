@@ -1,25 +1,30 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { computeMetrics, dayKeyOf } from "@luxalgo/journal-core";
 import { db, journalDays } from "@/db";
-import { bad, handler, ok } from "@/server/api";
+import { bad, currentUserId, handler, ok } from "@/server/api";
 import { runAi } from "@/server/ai";
 import { getTimeZone } from "@/server/settings";
 import { queryTrades } from "@/server/trades-query";
 
 /** Generate a session recap for one trading day from the day's actual trades. */
 export const POST = handler(async (request: Request) => {
+  const userId = await currentUserId();
   const { date } = (await request.json()) as { date?: string };
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return bad("date (YYYY-MM-DD) is required");
-  const timeZone = getTimeZone();
+  const timeZone = getTimeZone(userId);
 
-  const { trades } = queryTrades();
+  const { trades } = queryTrades(undefined, userId);
   const dayTrades = trades.filter(
     (trade) => trade.closedAt && dayKeyOf(trade.closedAt, timeZone) === date,
   );
   if (dayTrades.length === 0) return bad("No closed trades on this day to recap");
 
   const metrics = computeMetrics(dayTrades, { timeZone });
-  const existingNote = db.select().from(journalDays).where(eq(journalDays.date, date)).get()?.note;
+  const existingNote = db
+    .select()
+    .from(journalDays)
+    .where(and(eq(journalDays.date, date), eq(journalDays.userId, userId)))
+    .get()?.note;
 
   const tradeLines = dayTrades
     .map(
@@ -44,6 +49,8 @@ Trades:
 ${tradeLines}
 
 ${existingNote ? `The trader's own note so far (respect it, build on it):\n${existingNote}` : ""}`,
+    1200,
+    userId,
   );
 
   return ok({ recap });

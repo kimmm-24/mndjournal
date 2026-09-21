@@ -1,8 +1,8 @@
 import { readFilters } from "@luxalgo/journal-core";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { dailyStats } from "@luxalgo/journal-core";
 import { db, journalDays } from "@/db";
-import { handler, ok } from "@/server/api";
+import { currentUserId, handler, ok } from "@/server/api";
 import { getTimeZone } from "@/server/settings";
 import { queryTrades } from "@/server/trades-query";
 
@@ -11,12 +11,18 @@ import { queryTrades } from "@/server/trades-query";
  * Days with notes but no trades exist (planning days, review days).
  */
 export const GET = handler(async (request: Request) => {
+  const userId = await currentUserId();
   const url = new URL(request.url);
-  const timeZone = getTimeZone();
-  const { trades } = queryTrades(readFilters(url.searchParams));
+  const timeZone = getTimeZone(userId);
+  const { trades } = queryTrades(readFilters(url.searchParams), userId);
 
   const tradeDays = new Map(dailyStats(trades, timeZone).map((day) => [day.date, day]));
-  const noteRows = db.select().from(journalDays).orderBy(desc(journalDays.date)).all();
+  const noteRows = db
+    .select()
+    .from(journalDays)
+    .where(eq(journalDays.userId, userId))
+    .orderBy(desc(journalDays.date))
+    .all();
   const noteDays = new Map(noteRows.map((row) => [row.date, row]));
 
   const filters = readFilters(url.searchParams);

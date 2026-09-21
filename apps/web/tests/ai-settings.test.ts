@@ -6,13 +6,37 @@ import { join } from "node:path";
 const originalDir = process.env.JOURNAL_DATA_DIR;
 const scratch = mkdtempSync(join(tmpdir(), "journal-ai-test-"));
 process.env.JOURNAL_DATA_DIR = scratch;
+// Better Auth's session check needs a request scope for next/headers'
+// headers(), which a plain vitest call into a route handler doesn't have —
+// stub both so route-level tests run as a fixed signed-in "test-user"
+// without a real HTTP/session round trip. Tests that need "no session"
+// override sessionUser to null for the duration of one call.
+let sessionUser: { id: string } | null = { id: "test-user" };
+vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
+vi.mock("@/server/auth", () => ({
+  auth: { api: { getSession: async () => (sessionUser ? { user: sessionUser, session: {} } : null) } },
+}));
+const TEST_USER = "test-user";
 const { db, settings } = await import("../src/db");
-const { getAiKey, getAiModel, getAiProvider, setSetting, getSetting } =
-  await import("../src/server/settings");
+const {
+  getAiKey: getAiKeyRaw,
+  getAiModel: getAiModelRaw,
+  getAiProvider: getAiProviderRaw,
+  setSetting: setSettingRaw,
+  getSetting: getSettingRaw,
+} = await import("../src/server/settings");
+const getAiKey = (provider: Parameters<typeof getAiKeyRaw>[0]) => getAiKeyRaw(provider, TEST_USER);
+const getAiModel = (provider: Parameters<typeof getAiModelRaw>[0]) =>
+  getAiModelRaw(provider, TEST_USER);
+const getAiProvider = () => getAiProviderRaw(TEST_USER);
+const setSetting = (key: string, value: string) => setSettingRaw(key, value, TEST_USER);
+const getSetting = (key: string) => getSettingRaw(key, TEST_USER);
 const { GET, PATCH } = await import("../src/app/api/settings/route");
 const { GET: exportData } = await import("../src/app/api/export/route");
-const { aiConfigured, runAi } = await import("../src/server/ai");
-vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined }) }));
+const { aiConfigured: aiConfiguredRaw, runAi: runAiRaw } = await import("../src/server/ai");
+const aiConfigured = () => aiConfiguredRaw(TEST_USER);
+const runAi = (prompt: string, maxOutputTokens?: number) =>
+  runAiRaw(prompt, maxOutputTokens, TEST_USER);
 
 const request = (body: unknown) =>
   new Request("http://localhost/api/settings", {
@@ -25,9 +49,9 @@ const state = async () => (await GET()).json();
 
 beforeEach(() => {
   db.delete(settings).run();
+  sessionUser = { id: TEST_USER };
   vi.stubEnv("ANTHROPIC_API_KEY", "");
   vi.stubEnv("OPENAI_API_KEY", "");
-  vi.stubEnv("JOURNAL_PASSWORD", "");
   vi.stubGlobal(
     "fetch",
     vi.fn(() => {
@@ -163,8 +187,8 @@ describe("AI provider settings", () => {
     });
   });
 
-  it("requires the journal session for reads and writes when a password is configured", async () => {
-    vi.stubEnv("JOURNAL_PASSWORD", "fixture-password");
+  it("requires a signed-in session for reads and writes", async () => {
+    sessionUser = null;
     expect((await GET()).status).toBe(401);
     expect((await save({ openaiKey: "fixture-key" })).status).toBe(401);
     expect(getAiKey("openai")).toBeNull();

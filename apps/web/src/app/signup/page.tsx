@@ -10,8 +10,9 @@ import { LuxAlgoMark } from "@/components/luxalgo-mark";
 import { GoogleMark } from "@/components/google-mark";
 import { authClient } from "@/lib/auth-client";
 
-export default function LoginPage() {
+export default function SignupPage() {
   const router = useRouter();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -22,17 +23,21 @@ export default function LoginPage() {
     event.preventDefault();
     setSubmitting(true);
     setError(null);
-    const { error: signInError } = await authClient.signIn.email({ email, password });
+    const { error: signUpError } = await authClient.signUp.email({
+      name: name.trim() || email,
+      email,
+      password,
+    });
     setSubmitting(false);
-    if (signInError) {
-      setError(signInError.message ?? "Wrong email or password");
+    if (signUpError) {
+      setError(signUpError.message ?? "Could not create account");
       return;
     }
     router.push("/");
     router.refresh();
   };
 
-  const signInWithGoogle = async () => {
+  const signUpWithGoogle = async () => {
     setGoogleSubmitting(true);
     setError(null);
     const { error: signInError } = await authClient.signIn.social({
@@ -41,7 +46,7 @@ export default function LoginPage() {
     });
     if (signInError) {
       setGoogleSubmitting(false);
-      setError(signInError.message ?? "Could not sign in with Google");
+      setError(signInError.message ?? "Could not sign up with Google");
     }
     // On success the client redirects to Google, so no further state update here.
   };
@@ -53,26 +58,33 @@ export default function LoginPage() {
           <form onSubmit={submit} className="space-y-3">
             <div className="text-center">
               <LuxAlgoMark className="mx-auto mb-2 h-6 w-7" />
-              <h1 className="text-sm font-semibold">Trade Journal</h1>
+              <h1 className="text-sm font-semibold">Create your account</h1>
             </div>
+            <Input
+              type="text"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Name"
+              autoFocus
+              autoComplete="name"
+            />
             <Input
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               placeholder="Email"
-              autoFocus
               autoComplete="email"
             />
             <Input
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Password"
-              autoComplete="current-password"
+              placeholder="Password (min. 8 characters)"
+              autoComplete="new-password"
             />
             {error && <p className="text-center text-xs text-loss">{error}</p>}
             <Button type="submit" className="w-full" disabled={submitting}>
-              Sign in
+              Sign up
             </Button>
             <div className="flex items-center gap-2">
               <div className="h-px flex-1 bg-border" />
@@ -84,15 +96,15 @@ export default function LoginPage() {
               variant="outline"
               className="w-full gap-2"
               disabled={googleSubmitting}
-              onClick={signInWithGoogle}
+              onClick={signUpWithGoogle}
             >
               <GoogleMark className="h-4 w-4" />
               Continue with Google
             </Button>
             <p className="text-center text-xs text-muted-foreground">
-              No account yet?{" "}
-              <Link href="/signup" className="underline">
-                Sign up
+              Already have an account?{" "}
+              <Link href="/login" className="underline">
+                Sign in
               </Link>
             </p>
           </form>

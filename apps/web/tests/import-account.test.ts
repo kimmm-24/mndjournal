@@ -6,8 +6,13 @@ import { join } from "node:path";
 const previous = process.env.JOURNAL_DATA_DIR;
 const scratch = mkdtempSync(join(tmpdir(), "journal-import-account-"));
 process.env.JOURNAL_DATA_DIR = scratch;
-vi.stubEnv("JOURNAL_PASSWORD", "");
-vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined }) }));
+// Better Auth's session check needs a request scope for next/headers'
+// headers(), which a plain vitest call into a route handler doesn't have —
+// stub both so the route handler runs as a fixed signed-in "test-user".
+vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
+vi.mock("@/server/auth", () => ({
+  auth: { api: { getSession: async () => ({ user: { id: "test-user" }, session: {} }) } },
+}));
 const { POST, GET } = await import("../src/app/api/accounts/route");
 const { db, executions, trades } = await import("../src/db");
 const { insertExecutions } = await import("../src/server/executions");

@@ -13,7 +13,7 @@ class PreviewRollback extends Error {
 }
 type ImportResult = { imported: number; skipped: number; sample: Record<string, string>[] };
 /** Deliberately a generic settled-cash format; bank/firm CSVs need explicit mapping. */
-export function importPropCsv(content: string, preview: boolean): ImportResult {
+export function importPropCsv(content: string, preview: boolean, userId: string): ImportResult {
   requireValue(Buffer.byteLength(content) <= 2 * 1024 * 1024, "CSV must be 2 MB or smaller.");
   requireValue(
     (content.match(/"/g)?.length ?? 0) % 2 === 0,
@@ -68,13 +68,23 @@ export function importPropCsv(content: string, preview: boolean): ImportResult {
           );
           const id = `csv-${hash(row.id!)}`,
             fingerprint = `CSV import ${hash(JSON.stringify(row))}`;
-          const old = db.select().from(propEntries).where(eq(propEntries.id, id)).get();
+          const old = db
+            .select()
+            .from(propEntries)
+            .where(and(eq(propEntries.id, id), eq(propEntries.userId, userId)))
+            .get();
           if (old) {
             requireValue(
               db
                 .select({ id: propAudit.id })
                 .from(propAudit)
-                .where(and(eq(propAudit.entityId, id), eq(propAudit.reason, fingerprint)))
+                .where(
+                  and(
+                    eq(propAudit.entityId, id),
+                    eq(propAudit.reason, fingerprint),
+                    eq(propAudit.userId, userId),
+                  ),
+                )
                 .get(),
               "This CSV ID was already imported with different data. Edit the existing record or use a new ID for a separate transaction.",
             );
@@ -96,7 +106,7 @@ export function importPropCsv(content: string, preview: boolean): ImportResult {
               ? db
                   .select({ id: propEntries.id })
                   .from(propEntries)
-                  .where(eq(propEntries.id, row.expense_id))
+                  .where(and(eq(propEntries.id, row.expense_id), eq(propEntries.userId, userId)))
                   .get()
                 ? row.expense_id
                 : `csv-${hash(row.expense_id)}`
@@ -107,29 +117,36 @@ export function importPropCsv(content: string, preview: boolean): ImportResult {
             fee: "0",
             status: "requested",
           };
-          mutateProp(command);
+          mutateProp(command, userId);
           if (row.kind === "payout") {
-            mutateProp({
-              action: "receipt.add",
-              id: `${id}-cash`,
-              payoutId: id,
-              revision: 1,
-              kind: "receipt",
-              amount: row.amount,
-              occurredOn: row.date,
-              reference: row.reference,
-              notes: row.notes,
-            });
-            mutateProp({
-              ...command,
-              revision: 2,
-              status: "completed",
-              reason: "Imported settled payout",
-            });
+            mutateProp(
+              {
+                action: "receipt.add",
+                id: `${id}-cash`,
+                payoutId: id,
+                revision: 1,
+                kind: "receipt",
+                amount: row.amount,
+                occurredOn: row.date,
+                reference: row.reference,
+                notes: row.notes,
+              },
+              userId,
+            );
+            mutateProp(
+              {
+                ...command,
+                revision: 2,
+                status: "completed",
+                reason: "Imported settled payout",
+              },
+              userId,
+            );
           }
           db.insert(propAudit)
             .values({
               id: newId(),
+              userId,
               entityType: "entry",
               entityId: id,
               beforeJson: null,

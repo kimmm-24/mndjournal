@@ -1,44 +1,51 @@
+// Fast, fully-mocked unit test of server/api.ts's own gate/error-mapping
+// logic in isolation. tests/api-auth.test.ts complements this with a real,
+// unmocked Better Auth signup/session flow — this file only cares that
+// `handler` and `currentUserId` behave correctly given a session (real or
+// not).
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-let cookieValue: string | undefined;
-vi.mock("next/headers", () => ({
-  cookies: async () => ({ get: () => (cookieValue ? { value: cookieValue } : undefined) }),
+let sessionUser: { id: string } | null = null;
+vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
+vi.mock("@/server/auth", () => ({
+  auth: {
+    api: {
+      getSession: vi.fn(async () => (sessionUser ? { user: sessionUser, session: {} } : null)),
+    },
+  },
 }));
 
-const { handler } = await import("../src/server/api");
-const { sessionToken } = await import("../src/server/auth");
-const route = handler(async () => new Response("secret", { status: 200 }));
+const { handler, currentUserId, RequestError } = await import("../src/server/api");
 
 afterEach(() => {
-  delete process.env.JOURNAL_PASSWORD;
-  cookieValue = undefined;
+  sessionUser = null;
 });
 
-describe("optional password protection", () => {
-  it("a forged session cookie is rejected when a password is configured", async () => {
-    process.env.JOURNAL_PASSWORD = "correct-horse";
-    cookieValue = "totally-forged";
-    expect((await route()).status).toBe(401);
+describe("the session gate", () => {
+  it("rejects a request with no session before the handler body runs", async () => {
+    const action = vi.fn(() => new Response("secret"));
+    const response = await handler(action)();
+    expect(response.status).toBe(401);
+    expect(action).not.toHaveBeenCalled();
   });
 
-  it("a missing cookie is rejected when a password is configured", async () => {
-    process.env.JOURNAL_PASSWORD = "correct-horse";
-    expect((await route()).status).toBe(401);
+  it("runs the handler and exposes the signed-in user's id once a session exists", async () => {
+    sessionUser = { id: "user-1" };
+    const route = handler(async () => new Response(await currentUserId()));
+    const response = await route();
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("user-1");
   });
 
-  it("the real session cookie is accepted", async () => {
-    process.env.JOURNAL_PASSWORD = "correct-horse";
-    cookieValue = sessionToken();
-    expect((await route()).status).toBe(200);
-  });
-
-  it("without a password the journal is open, as documented", async () => {
-    expect((await route()).status).toBe(200);
-  });
-
-  it("a route marked public skips the gate so login itself can work", async () => {
-    process.env.JOURNAL_PASSWORD = "correct-horse";
-    const login = handler(async () => new Response("ok"), { public: true });
-    expect((await login()).status).toBe(200);
+  it("turns a thrown RequestError into a 400 and any other error into a 500", async () => {
+    sessionUser = { id: "user-1" };
+    const badInput = handler(async () => {
+      throw new RequestError("nope");
+    });
+    expect((await badInput()).status).toBe(400);
+    const crashed = handler(async () => {
+      throw new Error("boom");
+    });
+    expect((await crashed()).status).toBe(500);
   });
 });

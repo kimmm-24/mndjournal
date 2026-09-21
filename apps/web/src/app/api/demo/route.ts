@@ -1,4 +1,4 @@
-import { handler, ok } from "@/server/api";
+import { currentUserId, handler, ok } from "@/server/api";
 import { loadDemoData } from "@/server/demo";
 
 /**
@@ -6,4 +6,4 @@ import { loadDemoData } from "@/server/demo";
  * install has something to look at. Idempotent; delete the account in
  * Accounts to remove every trace.
  */
-export const POST = handler(() => ok(loadDemoData()));
+export const POST = handler(async () => ok(loadDemoData(await currentUserId())));

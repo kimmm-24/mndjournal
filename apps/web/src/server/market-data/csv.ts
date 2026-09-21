@@ -41,7 +41,7 @@ function lowerBound(bars: MarketBar[], time: number) {
   }
   return lo;
 }
-export function csvDatasets(): MarketCsvDataset[] {
+export function csvDatasets(userId: string): MarketCsvDataset[] {
   return db
     .select({
       id: marketCsvDatasets.id,
@@ -56,6 +56,7 @@ export function csvDatasets(): MarketCsvDataset[] {
       lastTime: marketCsvDatasets.lastTime,
     })
     .from(marketCsvDatasets)
+    .where(eq(marketCsvDatasets.userId, userId))
     .all()
     .map(({ firstTime, lastTime, ...row }) => ({
       ...row,
@@ -64,16 +65,25 @@ export function csvDatasets(): MarketCsvDataset[] {
       to: new Date(lastTime + RESOLUTIONS[row.resolution as Resolution]).toISOString(),
     }));
 }
-export function importCsvDataset(input: {
-  name: string;
-  symbol: string;
-  resolution: Resolution;
-  currency: string;
-  priceBasis: string;
-  content: string;
-}) {
+export function importCsvDataset(
+  input: {
+    name: string;
+    symbol: string;
+    resolution: Resolution;
+    currency: string;
+    priceBasis: string;
+    content: string;
+  },
+  userId: string,
+) {
   const bars = parseMarketCsv(input.content, input.symbol, input.resolution);
-  if (db.select({ id: marketCsvDatasets.id }).from(marketCsvDatasets).all().length >= 50)
+  if (
+    db
+      .select({ id: marketCsvDatasets.id })
+      .from(marketCsvDatasets)
+      .where(eq(marketCsvDatasets.userId, userId))
+      .all().length >= 50
+  )
     throw new MarketDataError("Remove an unused dataset before adding more (50-file limit).");
   const { name, symbol, resolution, currency, priceBasis } = input;
   const metadata = { name, symbol, resolution, currency, priceBasis };
@@ -82,6 +92,7 @@ export function importCsvDataset(input: {
     .values({
       ...metadata,
       id,
+      userId,
       importedAt: new Date().toISOString(),
       barsJson: JSON.stringify(bars),
       barCount: bars.length,
@@ -91,12 +102,19 @@ export function importCsvDataset(input: {
     .run();
   return id;
 }
-export function removeCsvDataset(id: string) {
+export function removeCsvDataset(id: string, userId: string) {
   db.transaction((tx) => {
     tx.delete(tradeExcursions)
-      .where(sql`json_extract(${tradeExcursions.estimateJson}, '$.datasetId') = ${id}`)
+      .where(
+        and(
+          sql`json_extract(${tradeExcursions.estimateJson}, '$.datasetId') = ${id}`,
+          eq(tradeExcursions.userId, userId),
+        ),
+      )
       .run();
-    tx.delete(marketCsvDatasets).where(eq(marketCsvDatasets.id, id)).run();
+    tx.delete(marketCsvDatasets)
+      .where(and(eq(marketCsvDatasets.id, id), eq(marketCsvDatasets.userId, userId)))
+      .run();
   });
   const bars = decoded.get(id);
   if (bars) {
@@ -108,8 +126,8 @@ export const marketCsv: MarketDataProvider = {
   id: "market-csv",
   name: "Market data CSV",
   environmentKey: "",
-  async test() {
-    if (!csvDatasets().length)
+  async test(_apiKey, userId) {
+    if (!csvDatasets(userId!).length)
       throw new MarketDataError("Upload market candles in Settings first.");
   },
   async history(request) {
@@ -127,6 +145,7 @@ export const marketCsv: MarketDataProvider = {
         and(
           eq(marketCsvDatasets.symbol, request.symbol),
           eq(marketCsvDatasets.resolution, request.resolution),
+          eq(marketCsvDatasets.userId, request.userId!),
           request.dataset ? eq(marketCsvDatasets.id, request.dataset) : undefined,
         ),
       )

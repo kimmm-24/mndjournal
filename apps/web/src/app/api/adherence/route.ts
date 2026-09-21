@@ -1,14 +1,17 @@
 import { analyzeAdherence, readFilters } from "@luxalgo/journal-core";
+import { eq } from "drizzle-orm";
 import { db, playbooks, tradeRuleChecks, accounts } from "@/db";
 import { queryTrades } from "@/server/trades-query";
-import { handler, ok } from "@/server/api";
+import { currentUserId, handler, ok } from "@/server/api";
 
-export const GET = handler((request: Request) => {
-  const { trades } = queryTrades(readFilters(new URL(request.url).searchParams));
-  const checks = db.select().from(tradeRuleChecks).all();
+export const GET = handler(async (request: Request) => {
+  const userId = await currentUserId();
+  const { trades } = queryTrades(readFilters(new URL(request.url).searchParams), userId);
+  const checks = db.select().from(tradeRuleChecks).where(eq(tradeRuleChecks.userId, userId)).all();
   const books = db
     .select()
     .from(playbooks)
+    .where(eq(playbooks.userId, userId))
     .all()
     .map((book) => ({
       id: book.id,
@@ -18,6 +21,7 @@ export const GET = handler((request: Request) => {
     db
       .select({ id: accounts.id, currency: accounts.currency })
       .from(accounts)
+      .where(eq(accounts.userId, userId))
       .all()
       .map((a) => [a.id, a.currency]),
   );

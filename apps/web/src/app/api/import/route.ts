@@ -6,7 +6,7 @@ import {
   type GenericMapping,
   type ImportedExecution,
 } from "@luxalgo/journal-importers";
-import { bad, handler, ok, requireValue } from "@/server/api";
+import { bad, currentUserId, handler, ok, requireValue } from "@/server/api";
 import { insertExecutions } from "@/server/executions";
 import { getImportTimeZone } from "@/server/settings";
 import { isTimeZone } from "@/lib/timezone";
@@ -28,6 +28,7 @@ interface ImportBody {
  * drift. Commit inserts with dedup, so re-importing the same file is a no-op.
  */
 export const POST = handler(async (request: Request) => {
+  const userId = await currentUserId();
   const body = (await request.json()) as ImportBody;
   if (typeof body.content !== "string" || !body.content) return bad("content is required");
   if (!["preview", "commit"].includes(body.mode)) return bad("mode must be preview or commit");
@@ -37,7 +38,7 @@ export const POST = handler(async (request: Request) => {
     return bad("Invalid filename");
   if (body.timeZone !== undefined)
     requireValue(isTimeZone(body.timeZone), "Enter a valid IANA statement timezone.");
-  const timeZone = body.timeZone ?? getImportTimeZone();
+  const timeZone = body.timeZone ?? getImportTimeZone(userId);
 
   const parsed = body.mapping
     ? parseWithMapping(body.content, body.mapping, { timeZone })

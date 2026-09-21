@@ -1,24 +1,35 @@
 import { and, eq } from "drizzle-orm";
 import { db, playbooks, tradeRuleChecks } from "@/db";
 import { getTradeByKey } from "@/server/trades-query";
-import { handler, ok, requireValue } from "@/server/api";
+import { currentUserId, handler, ok, requireValue } from "@/server/api";
 type Context = { params: Promise<{ key: string }> };
-function source(key: string) {
-  const trade = getTradeByKey(key);
+function source(key: string, userId: string) {
+  const trade = getTradeByKey(key, userId);
   requireValue(trade, "Trade not found.");
   const book = trade.playbookId
-    ? db.select().from(playbooks).where(eq(playbooks.id, trade.playbookId)).get()
+    ? db
+        .select()
+        .from(playbooks)
+        .where(and(eq(playbooks.id, trade.playbookId), eq(playbooks.userId, userId)))
+        .get()
     : null;
   return { book, rules: book ? [...new Set(JSON.parse(book.rulesJson) as string[])] : [] };
 }
 export const GET = handler(async (_request: Request, { params }: Context) => {
+  const userId = await currentUserId();
   const key = (await params).key;
-  const { book, rules } = source(key);
+  const { book, rules } = source(key, userId);
   const checks = book
     ? db
         .select()
         .from(tradeRuleChecks)
-        .where(and(eq(tradeRuleChecks.tradeKey, key), eq(tradeRuleChecks.playbookId, book.id)))
+        .where(
+          and(
+            eq(tradeRuleChecks.tradeKey, key),
+            eq(tradeRuleChecks.playbookId, book.id),
+            eq(tradeRuleChecks.userId, userId),
+          ),
+        )
         .all()
     : [];
   return ok({
@@ -30,18 +41,22 @@ export const GET = handler(async (_request: Request, { params }: Context) => {
   });
 });
 export const POST = handler(async (request: Request, { params }: Context) => {
+  const userId = await currentUserId();
   const key = (await params).key,
     b = await request.json();
-  const { book, rules } = source(key);
+  const { book, rules } = source(key, userId);
   requireValue(
     book && rules.includes(b.rule) && (b.followed === null || typeof b.followed === "boolean"),
     "Choose an existing strategy rule.",
   );
   const id = JSON.stringify([key, book.id, b.rule]);
-  if (b.followed === null) db.delete(tradeRuleChecks).where(eq(tradeRuleChecks.id, id)).run();
+  if (b.followed === null)
+    db.delete(tradeRuleChecks)
+      .where(and(eq(tradeRuleChecks.id, id), eq(tradeRuleChecks.userId, userId)))
+      .run();
   else
     db.insert(tradeRuleChecks)
-      .values({ id, tradeKey: key, playbookId: book.id, rule: b.rule, followed: b.followed })
+      .values({ id, userId, tradeKey: key, playbookId: book.id, rule: b.rule, followed: b.followed })
       .onConflictDoUpdate({ target: tradeRuleChecks.id, set: { followed: b.followed } })
       .run();
   return ok({ saved: true });

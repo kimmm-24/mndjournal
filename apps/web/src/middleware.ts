@@ -1,17 +1,19 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { getSessionCookie } from "better-auth/cookies";
 
 /**
- * Auth guard (only active when JOURNAL_PASSWORD is set). The session cookie is
- * validated for presence here and cryptographically in API handlers — the
- * middleware runtime has no Node crypto, so it gates navigation while the
- * handlers gate data.
+ * Auth guard. This only checks whether a session cookie is present — the
+ * edge runtime has no Node crypto or database access, so it can't validate
+ * the session itself. It gates navigation; server/api.ts's `handler` gates
+ * data by verifying the session for real against the database.
  */
 export const middleware = (request: NextRequest) => {
-  if (!process.env.JOURNAL_PASSWORD) return NextResponse.next();
   const { pathname } = request.nextUrl;
-  if (pathname === "/login" || pathname === "/api/auth") return NextResponse.next();
-  const cookie = request.cookies.get("journal_session")?.value;
-  if (!cookie) {
+  if (pathname === "/login" || pathname === "/signup" || pathname.startsWith("/api/auth")) {
+    return NextResponse.next();
+  }
+  const sessionCookie = getSessionCookie(request);
+  if (!sessionCookie) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

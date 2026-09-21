@@ -31,7 +31,7 @@ export const rebuildAccount = (accountId: string): void => {
 
   const trips = buildRoundTrips(executionInputs, {
     method: account.profitCalcMethod as ProfitCalcMethod,
-    multipliers: getMultipliers(),
+    multipliers: getMultipliers(account.userId),
   });
   const obsolete = new Set(
     db
@@ -41,13 +41,14 @@ export const rebuildAccount = (accountId: string): void => {
       .all()
       .map((row) => row.key),
   );
-  const defaults = getJournalDefaults();
+  const defaults = getJournalDefaults(account.userId);
 
   db.transaction((tx) => {
     for (const trip of trips) {
       obsolete.delete(trip.key);
       const computed = {
         accountId: trip.accountId,
+        userId: account.userId,
         symbol: trip.symbol,
         assetClass: trip.assetClass ?? null,
         direction: trip.direction,

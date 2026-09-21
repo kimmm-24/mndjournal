@@ -1,16 +1,19 @@
 import { readFilters } from "@luxalgo/journal-core";
+import { eq } from "drizzle-orm";
 import { accounts, db } from "@/db";
 import { performanceTrends } from "@/lib/performance-trends";
-import { handler, ok } from "@/server/api";
+import { currentUserId, handler, ok } from "@/server/api";
 import { getTimeZone } from "@/server/settings";
 import { queryTrades } from "@/server/trades-query";
 
-export const GET = handler((request: Request) => {
-  const { trades } = queryTrades(readFilters(new URL(request.url).searchParams));
+export const GET = handler(async (request: Request) => {
+  const userId = await currentUserId();
+  const { trades } = queryTrades(readFilters(new URL(request.url).searchParams), userId);
   const currencies = new Map(
     db
       .select({ id: accounts.id, currency: accounts.currency })
       .from(accounts)
+      .where(eq(accounts.userId, userId))
       .all()
       .map((account) => [account.id, account.currency]),
   );
@@ -23,6 +26,6 @@ export const GET = handler((request: Request) => {
           .map((trade) => currencies.get(trade.accountId) ?? "USD"),
       ),
     ],
-    timeZone: getTimeZone(),
+    timeZone: getTimeZone(userId),
   });
 });

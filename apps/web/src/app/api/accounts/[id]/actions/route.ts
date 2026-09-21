@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { accounts, db, executions, trades } from "@/db";
-import { bad, handler, ok } from "@/server/api";
+import { bad, currentUserId, handler, ok } from "@/server/api";
 import { nowIso } from "@/server/ids";
 import { rebuildAccount } from "@/server/rebuild";
 import { syncAccount } from "@/server/sync";
@@ -14,8 +14,13 @@ interface ActionBody {
 }
 
 export const POST = handler(async (request: Request, { params }: Params) => {
+  const userId = await currentUserId();
   const { id } = await params;
-  const account = db.select().from(accounts).where(eq(accounts.id, id)).get();
+  const account = db
+    .select()
+    .from(accounts)
+    .where(and(eq(accounts.id, id), eq(accounts.userId, userId)))
+    .get();
   if (!account) return bad("Account not found", 404);
   const body = (await request.json()) as ActionBody;
 
@@ -37,7 +42,11 @@ export const POST = handler(async (request: Request, { params }: Params) => {
     case "transfer": {
       if (!body.toAccountId) return bad("toAccountId is required");
       const destinationId = body.toAccountId;
-      const destination = db.select().from(accounts).where(eq(accounts.id, destinationId)).get();
+      const destination = db
+        .select()
+        .from(accounts)
+        .where(and(eq(accounts.id, destinationId), eq(accounts.userId, userId)))
+        .get();
       if (!destination) return bad("Destination account not found", 404);
 
       // Remember annotations before the move; trade keys are account-prefixed,

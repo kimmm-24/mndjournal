@@ -31,7 +31,7 @@ beforeEach(() => {
   db.delete(executions).run();
   db.delete(accounts).run();
   db.insert(accounts)
-    .values({ id: "broker", name: "Broker", kind: "sync", createdAt: "2026-01-01" })
+    .values({ id: "broker", userId: "test-user", name: "Broker", kind: "sync", createdAt: "2026-01-01" })
     .run();
 });
 afterAll(() => {

@@ -17,8 +17,11 @@ const parseJsonArray = (value: string | null): string[] => {
   }
 };
 
-const context = () => ({ multipliers: getMultipliers(), defaults: getJournalDefaults() });
-export const rowToTrade = (row: TradeRow, config = context()): AnnotatedTrade => {
+const context = (userId?: string) => ({
+  multipliers: getMultipliers(userId),
+  defaults: getJournalDefaults(userId),
+});
+export const rowToTrade = (row: TradeRow, config = context(row.userId)): AnnotatedTrade => {
   const multiplier = config.multipliers[row.symbol];
   const defaults = config.defaults;
   const missingMultiplier =
@@ -74,9 +77,13 @@ export const rowToTrade = (row: TradeRow, config = context()): AnnotatedTrade =>
 /**
  * Narrow indexed identity fields before decoding rows. The core predicate
  * remains authoritative for timezone, risk and breakeven semantics.
+ *
+ * `userId` is optional so callers not yet migrated to per-user scoping keep
+ * their existing (unscoped) behavior; every migrated caller must pass it.
  */
 export const queryTrades = (
   filters: TradeFilters = {},
+  userId?: string,
 ): { rows: TradeRow[]; trades: AnnotatedTrade[] } => {
   const effective = { ...filters, accounts: filters.accounts ?? filters.accountIds?.join(",") };
   const accountIds = effective.accounts
@@ -88,6 +95,7 @@ export const queryTrades = (
     .from(trades)
     .where(
       and(
+        userId ? eq(trades.userId, userId) : undefined,
         accountIds?.length ? inArray(trades.accountId, accountIds) : undefined,
         effective.playbookId ? eq(trades.playbookId, effective.playbookId) : undefined,
         effective.direction
@@ -98,8 +106,8 @@ export const queryTrades = (
     )
     .orderBy(asc(trades.openedAt))
     .all();
-  const timeZone = getTimeZone();
-  const config = context();
+  const timeZone = getTimeZone(userId);
+  const config = context(userId);
   const pairs = all
     .map((row) => ({ row, trade: rowToTrade(row, config) }))
     .filter(({ trade }) => matchesFilters(trade, effective, timeZone));
@@ -109,5 +117,9 @@ export const queryTrades = (
   };
 };
 
-export const getTradeByKey = (key: string): TradeRow | undefined =>
-  db.select().from(trades).where(eq(trades.key, key)).get();
+export const getTradeByKey = (key: string, userId?: string): TradeRow | undefined =>
+  db
+    .select()
+    .from(trades)
+    .where(and(eq(trades.key, key), userId ? eq(trades.userId, userId) : undefined))
+    .get();

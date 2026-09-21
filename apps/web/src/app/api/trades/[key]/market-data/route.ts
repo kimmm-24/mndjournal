@@ -1,6 +1,6 @@
 import { accounts, db } from "@/db";
 import { eq } from "drizzle-orm";
-import { bad, handler, ok, requireValue } from "@/server/api";
+import { bad, currentUserId, handler, ok, requireValue } from "@/server/api";
 import { connectionKey, providerFor } from "@/server/market-data/connections";
 import { MarketDataError } from "@/server/market-data/provider";
 import { getTradeByKey, rowToTrade } from "@/server/trades-query";
@@ -12,17 +12,19 @@ import { estimateFingerprint, saveEstimate, savedEstimates } from "@/server/mark
 
 export const GET = handler(
   async (_request: Request, { params }: { params: Promise<{ key: string }> }) => {
+    const userId = await currentUserId();
     const { key } = await params;
-    const row = getTradeByKey(key);
+    const row = getTradeByKey(key, userId);
     if (!row) return bad("Trade not found", 404);
-    return ok({ saved: savedEstimates([rowToTrade(row)]).get(key) ?? null });
+    return ok({ saved: savedEstimates([rowToTrade(row)], userId).get(key) ?? null });
   },
 );
 
 export const POST = handler(
   async (request: Request, { params }: { params: Promise<{ key: string }> }) => {
+    const userId = await currentUserId();
     const { key } = await params;
-    const row = getTradeByKey(key);
+    const row = getTradeByKey(key, userId);
     if (!row) return bad("Trade not found", 404);
     const body = await request.json();
     requireValue(body && typeof body.provider === "string", "Choose a market data provider.");
@@ -86,8 +88,9 @@ export const POST = handler(
           from,
           to,
           signal: request.signal,
+          userId,
         },
-        connectionKey(provider.id),
+        connectionKey(provider.id, userId),
       );
       const accountCurrency = db
         .select({ currency: accounts.currency })
@@ -105,9 +108,9 @@ export const POST = handler(
         estimate.warnings.unshift(
           `The candle quote currency (${history.quoteCurrency}) differs from this account (${accountCurrency}). Monetary estimates are unavailable; no FX conversion is applied.`,
         );
-      const current = getTradeByKey(key);
+      const current = getTradeByKey(key, userId);
       if (current && estimateFingerprint(rowToTrade(current)) === fingerprint)
-        saveEstimate(trade, { ...history, estimate }, fingerprint);
+        saveEstimate(trade, { ...history, estimate }, fingerprint, userId);
       if (body.estimateOnly) {
         const { bars: _bars, ...metadata } = history;
         return ok({ ...metadata, estimate });

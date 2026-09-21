@@ -9,7 +9,8 @@ import { AI_PROVIDER_NAMES } from "@/lib/ai-settings";
  * encrypted settings store (or the selected provider's environment variable).
  * Requests go straight from this server to the selected provider.
  */
-export const aiConfigured = (): boolean => getAiKey(getAiProvider()) !== null;
+export const aiConfigured = (userId?: string): boolean =>
+  getAiKey(getAiProvider(userId), userId) !== null;
 
 const SYSTEM = `You are the reflection layer of a trader's journal.
 You see only the trader's own recorded data — trades, stats, and notes. Ground every
@@ -18,15 +19,19 @@ Be direct and specific like a good trading coach: name the behavior, cite the nu
 say what to keep and what to fix. No platitudes, no disclaimers about trading being risky —
 the trader knows. Keep it tight.`;
 
-export const runAi = async (prompt: string, maxOutputTokens = 1200): Promise<string> => {
-  const provider = getAiProvider();
-  const apiKey = getAiKey(provider);
+export const runAi = async (
+  prompt: string,
+  maxOutputTokens = 1200,
+  userId?: string,
+): Promise<string> => {
+  const provider = getAiProvider(userId);
+  const apiKey = getAiKey(provider, userId);
   if (!apiKey) {
     throw new Error(
       `AI is not configured — add your ${AI_PROVIDER_NAMES[provider]} API key in Settings.`,
     );
   }
-  const model = getAiModel(provider);
+  const model = getAiModel(provider, userId);
   try {
     const result = await generateText({
       model:

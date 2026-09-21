@@ -1,4 +1,4 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { dayKeyOf } from "@luxalgo/journal-core";
 import {
   db,
@@ -9,18 +9,19 @@ import {
   playbooks,
   accounts,
 } from "@/db";
-import { handler, ok, bad, requireValue } from "@/server/api";
+import { currentUserId, handler, ok, bad, requireValue } from "@/server/api";
 import { newId, nowIso } from "@/server/ids";
 import { getJournalDefaults, getTimeZone, setSetting } from "@/server/settings";
 import { scheduledRules } from "@/lib/progress";
 import { parseJournalDefaults } from "@/lib/journal-defaults";
 
 type Context = { params: Promise<{ resource: string }> };
-const today = () => dayKeyOf(nowIso(), getTimeZone());
-const rules = () =>
+const today = (userId: string) => dayKeyOf(nowIso(), getTimeZone(userId));
+const rules = (userId: string) =>
   db
     .select()
     .from(progressRules)
+    .where(eq(progressRules.userId, userId))
     .orderBy(asc(progressRules.createdAt))
     .all()
     .map((r) => ({ ...r, weekdays: JSON.parse(r.weekdaysJson) as number[] }));
@@ -33,19 +34,33 @@ const text = (s: unknown, max = 100000): s is string => typeof s === "string" &&
 const finite = (n: unknown) => typeof n === "number" && Number.isFinite(n);
 
 export const GET = handler(async (_request: Request, { params }: Context) => {
+  const userId = await currentUserId();
   const { resource } = await params;
-  if (resource === "templates") return ok({ templates: db.select().from(noteTemplates).all() });
+  if (resource === "templates")
+    return ok({
+      templates: db.select().from(noteTemplates).where(eq(noteTemplates.userId, userId)).all(),
+    });
   if (resource === "progress")
-    return ok({ rules: rules(), checks: db.select().from(progressChecks).all(), today: today() });
+    return ok({
+      rules: rules(userId),
+      checks: db.select().from(progressChecks).where(eq(progressChecks.userId, userId)).all(),
+      today: today(userId),
+    });
   if (resource === "missed")
     return ok({
-      trades: db.select().from(missedTrades).orderBy(desc(missedTrades.observedAt)).all(),
+      trades: db
+        .select()
+        .from(missedTrades)
+        .where(eq(missedTrades.userId, userId))
+        .orderBy(desc(missedTrades.observedAt))
+        .all(),
     });
-  if (resource === "defaults") return ok(getJournalDefaults());
+  if (resource === "defaults") return ok(getJournalDefaults(userId));
   return bad("Unknown resource", 404);
 });
 
 export const POST = handler(async (request: Request, { params }: Context) => {
+  const userId = await currentUserId();
   const { resource } = await params;
   const b = await request.json();
   if (resource === "templates") {
@@ -54,22 +69,22 @@ export const POST = handler(async (request: Request, { params }: Context) => {
       "A template needs a name and content (up to 100,000 characters).",
     );
     const id = newId();
-    db.insert(noteTemplates).values({ id, name: b.name.trim(), content: b.content }).run();
+    db.insert(noteTemplates).values({ id, userId, name: b.name.trim(), content: b.content }).run();
     return ok({ id });
   }
   if (resource === "progress") {
     if (b.ruleId) {
       requireValue(
-        validDate(b.date) && b.date <= today() && typeof b.done === "boolean",
+        validDate(b.date) && b.date <= today(userId) && typeof b.done === "boolean",
         "Choose a valid date up to today.",
       );
       requireValue(
-        scheduledRules(rules(), b.date).some((r) => r.id === b.ruleId),
+        scheduledRules(rules(userId), b.date).some((r) => r.id === b.ruleId),
         "This routine is not scheduled on that date.",
       );
       const id = `${b.ruleId}:${b.date}`;
       db.insert(progressChecks)
-        .values({ id, ruleId: b.ruleId, date: b.date, done: b.done })
+        .values({ id, userId, ruleId: b.ruleId, date: b.date, done: b.done })
         .onConflictDoUpdate({ target: progressChecks.id, set: { done: b.done } })
         .run();
       return ok({ saved: true });
@@ -90,10 +105,11 @@ export const POST = handler(async (request: Request, { params }: Context) => {
     db.insert(progressRules)
       .values({
         id,
+        userId,
         title: b.title.trim(),
         stage: b.stage,
         weekdaysJson: JSON.stringify([...new Set(b.weekdays)]),
-        createdAt: today(),
+        createdAt: today(userId),
       })
       .run();
     return ok({ id });
@@ -111,7 +127,12 @@ export const POST = handler(async (request: Request, { params }: Context) => {
     for (const key of ["entry", "stop", "target"])
       requireValue(b[key] == null || finite(b[key]), `Invalid ${key} price.`);
     requireValue(
-      !b.playbookId || db.select().from(playbooks).where(eq(playbooks.id, b.playbookId)).get(),
+      !b.playbookId ||
+        db
+          .select()
+          .from(playbooks)
+          .where(and(eq(playbooks.id, b.playbookId), eq(playbooks.userId, userId)))
+          .get(),
       "Strategy not found.",
     );
     const values = {
@@ -126,15 +147,22 @@ export const POST = handler(async (request: Request, { params }: Context) => {
     };
     if (b.id) {
       requireValue(
-        db.select().from(missedTrades).where(eq(missedTrades.id, b.id)).get(),
+        db
+          .select()
+          .from(missedTrades)
+          .where(and(eq(missedTrades.id, b.id), eq(missedTrades.userId, userId)))
+          .get(),
         "Missed trade not found.",
       );
-      db.update(missedTrades).set(values).where(eq(missedTrades.id, b.id)).run();
+      db.update(missedTrades)
+        .set(values)
+        .where(and(eq(missedTrades.id, b.id), eq(missedTrades.userId, userId)))
+        .run();
       return ok({ id: b.id });
     }
     const id = newId();
     db.insert(missedTrades)
-      .values({ id, ...values, createdAt: nowIso() })
+      .values({ id, userId, ...values, createdAt: nowIso() })
       .run();
     return ok({ id });
   }
@@ -143,28 +171,36 @@ export const POST = handler(async (request: Request, { params }: Context) => {
       db
         .select({ id: accounts.id })
         .from(accounts)
+        .where(eq(accounts.userId, userId))
         .all()
         .map((a) => a.id),
     );
     const parsed = parseJournalDefaults(b, (id) => known.has(id));
     if (parsed.error !== undefined) return bad(parsed.error);
-    setSetting("journalDefaults", JSON.stringify(parsed.defaults));
+    setSetting("journalDefaults", JSON.stringify(parsed.defaults), userId);
     return ok({ saved: true });
   }
   return bad("Unknown resource", 404);
 });
 
 export const DELETE = handler(async (request: Request, { params }: Context) => {
+  const userId = await currentUserId();
   const { resource } = await params;
   const b = await request.json();
   requireValue(text(b.id, 200), "Invalid id.");
-  if (resource === "templates") db.delete(noteTemplates).where(eq(noteTemplates.id, b.id)).run();
+  if (resource === "templates")
+    db.delete(noteTemplates)
+      .where(and(eq(noteTemplates.id, b.id), eq(noteTemplates.userId, userId)))
+      .run();
   else if (resource === "progress")
-    db.update(progressRules).set({ archivedAt: today() }).where(eq(progressRules.id, b.id)).run();
+    db.update(progressRules)
+      .set({ archivedAt: today(userId) })
+      .where(and(eq(progressRules.id, b.id), eq(progressRules.userId, userId)))
+      .run();
   else if (resource === "missed")
     db.update(missedTrades)
       .set({ archivedAt: b.restore ? null : nowIso() })
-      .where(eq(missedTrades.id, b.id))
+      .where(and(eq(missedTrades.id, b.id), eq(missedTrades.userId, userId)))
       .run();
   else return bad("Unknown resource", 404);
   return ok({ saved: true });

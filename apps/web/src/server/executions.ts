@@ -95,15 +95,17 @@ export const insertExecutions = (
       (source === "manual" && typeof manualNotes === "string" && manualNotes.length <= 100000),
     "Manual trade notes must be at most 100,000 characters.",
   );
-  requireValue(
-    db.select({ id: accounts.id }).from(accounts).where(eq(accounts.id, accountId)).get(),
-    "Account not found.",
-  );
+  const account = db
+    .select({ id: accounts.id, userId: accounts.userId })
+    .from(accounts)
+    .where(eq(accounts.id, accountId))
+    .get();
+  requireValue(account, "Account not found.");
   const { usable, skipped, skippedReasons } = partitionExecutions(rows, source);
   let inserted = 0;
   let duplicates = 0;
   const createdAt = nowIso();
-  const defaults = getJournalDefaults();
+  const defaults = getJournalDefaults(account.userId);
   const note = manualNotes?.trim() ? manualNotes : undefined;
 
   db.transaction((tx) => {
@@ -116,6 +118,7 @@ export const insertExecutions = (
         .values({
           id,
           accountId,
+          userId: account.userId,
           symbol: row.symbol,
           side: row.side,
           quantity: row.quantity,

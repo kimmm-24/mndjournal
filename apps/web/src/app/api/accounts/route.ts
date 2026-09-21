@@ -1,11 +1,12 @@
 import { asc, eq } from "drizzle-orm";
 import { accounts, db } from "@/db";
-import { bad, handler, ok } from "@/server/api";
+import { bad, currentUserId, handler, ok } from "@/server/api";
 import { encryptJson } from "@/server/crypto";
 import { newId, nowIso } from "@/server/ids";
 import { syncAccount } from "@/server/sync";
 
-export const GET = handler((request: Request) => {
+export const GET = handler(async (request: Request) => {
+  const userId = await currentUserId();
   if (new URL(request.url).searchParams.get("summary") === "1") {
     return ok({
       accounts: db
@@ -16,11 +17,17 @@ export const GET = handler((request: Request) => {
           archivedAt: accounts.archivedAt,
         })
         .from(accounts)
+        .where(eq(accounts.userId, userId))
         .orderBy(asc(accounts.createdAt))
         .all(),
     });
   }
-  const rows = db.select().from(accounts).orderBy(asc(accounts.createdAt)).all();
+  const rows = db
+    .select()
+    .from(accounts)
+    .where(eq(accounts.userId, userId))
+    .orderBy(asc(accounts.createdAt))
+    .all();
   return ok({
     accounts: rows.map(({ credentialsEnc, ...safe }) => ({
       ...safe,
@@ -42,6 +49,7 @@ interface CreateBody {
 }
 
 export const POST = handler(async (request: Request) => {
+  const userId = await currentUserId();
   const body = (await request.json()) as CreateBody;
   if (!body.name || !body.kind) return bad("name and kind are required");
   if (body.kind === "sync" && (!body.broker || !body.credentials)) {
@@ -52,6 +60,7 @@ export const POST = handler(async (request: Request) => {
   db.insert(accounts)
     .values({
       id,
+      userId,
       name: body.name,
       broker: body.broker ?? "",
       kind: body.kind,

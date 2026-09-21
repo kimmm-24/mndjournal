@@ -15,7 +15,17 @@ import {
 const originalDir = process.env.JOURNAL_DATA_DIR;
 const scratch = mkdtempSync(join(tmpdir(), "journal-prop-test-"));
 process.env.JOURNAL_DATA_DIR = scratch;
-vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined }) }));
+// Better Auth's session check needs a request scope for next/headers'
+// headers(), which a plain vitest call into a route handler doesn't have —
+// stub both so route-level tests run as a fixed signed-in "test-user"
+// without a real HTTP/session round trip. Tests that need "no session"
+// override sessionUser to null for the duration of one call.
+let sessionUser: { id: string } | null = { id: "test-user" };
+vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
+vi.mock("@/server/auth", () => ({
+  auth: { api: { getSession: async () => (sessionUser ? { user: sessionUser, session: {} } : null) } },
+}));
+const TEST_USER = "test-user";
 const {
   db,
   propAccounts,
@@ -27,8 +37,16 @@ const {
   trades,
   attachments,
 } = await import("../src/db");
-const { mutateProp, propData, PropConflict } = await import("../src/server/prop-firms");
-const { importPropCsv } = await import("../src/server/prop-csv");
+const {
+  mutateProp: mutatePropRaw,
+  propData: propDataRaw,
+  PropConflict,
+} = await import("../src/server/prop-firms");
+const mutateProp = (body: Record<string, unknown>) => mutatePropRaw(body, TEST_USER);
+const propData = () => propDataRaw(TEST_USER);
+const { importPropCsv: importPropCsvRaw } = await import("../src/server/prop-csv");
+const importPropCsv = (content: string, preview: boolean) =>
+  importPropCsvRaw(content, preview, TEST_USER);
 const { GET, POST } = await import("../src/app/api/prop-firms/route");
 const { POST: csvPost } = await import("../src/app/api/prop-firms/csv/route");
 const { GET: exportData } = await import("../src/app/api/export/route");
@@ -102,7 +120,7 @@ beforeEach(() => {
   db.delete(propAccounts).run();
   db.delete(accounts).run();
   db.delete(settings).run();
-  vi.stubEnv("JOURNAL_PASSWORD", "");
+  sessionUser = { id: TEST_USER };
 });
 afterEach(() => vi.unstubAllEnvs());
 afterAll(() => {
@@ -193,6 +211,7 @@ describe("prop account lifecycle and corrections", () => {
       db.insert(accounts)
         .values({
           id: "journal",
+          userId: "test-user",
           name: "Journal",
           kind: "manual",
           createdAt: "2025-01-01",
@@ -468,6 +487,7 @@ describe("generic cash imports and API boundaries", () => {
     db.insert(accounts)
       .values({
         id: "j",
+        userId: "test-user",
         name: "Journal",
         kind: "manual",
         credentialsEnc: "secret-fixture",
@@ -491,7 +511,7 @@ describe("generic cash imports and API boundaries", () => {
       (await POST(request(account({ revision: 3, name: "Stale", reason: "Edit" })))).status,
     ).toBe(409);
     expect((await POST(request({ padding: "a".repeat(33000) }))).status).toBe(400);
-    vi.stubEnv("JOURNAL_PASSWORD", "fixture");
+    sessionUser = null;
     expect((await GET(new Request("http://localhost/api/prop-firms"))).status).toBe(401);
     expect((await POST(request(account()))).status).toBe(401);
     expect((await csvPost(request({ action: "preview", content: csv }))).status).toBe(401);

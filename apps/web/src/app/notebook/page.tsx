@@ -53,7 +53,7 @@ function Notebook() {
 
   const createNote = async () => {
     const result = await postJson<{ id: string }>("/api/notes", {
-      folderId: folder === "all" ? "my-notes" : folder,
+      folderId: folder === "all" ? undefined : folder,
       title: "Untitled",
     });
     refresh();

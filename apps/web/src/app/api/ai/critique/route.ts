@@ -1,13 +1,14 @@
-import { bad, handler, ok } from "@/server/api";
+import { bad, currentUserId, handler, ok } from "@/server/api";
 import { runAi } from "@/server/ai";
 import { listExecutions } from "@/server/executions";
 import { getTradeByKey, rowToTrade } from "@/server/trades-query";
 
 /** Critique one trade: entries, exits, sizing, and the trader's own annotations. */
 export const POST = handler(async (request: Request) => {
+  const userId = await currentUserId();
   const { key } = (await request.json()) as { key?: string };
   if (!key) return bad("key is required");
-  const row = getTradeByKey(key);
+  const row = getTradeByKey(key, userId);
   if (!row) return bad("Trade not found", 404);
   const trade = rowToTrade(row);
   const fills = listExecutions(row.accountId, trade.executionIds).sort((a, b) =>
@@ -29,6 +30,8 @@ Notes: ${row.notes ?? "none"}
 
 Fills:
 ${fills.map((fill) => `${fill.executedAt} ${fill.side} ${fill.quantity} @ ${fill.price}${fill.fee ? ` fee ${fill.fee}` : ""}`).join("\n")}`,
+    1200,
+    userId,
   );
 
   return ok({ critique });

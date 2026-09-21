@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import {
   db,
   accounts,
@@ -26,7 +27,7 @@ import {
   getTimeZone,
   getImportTimeZone,
 } from "@/server/settings";
-import { handler, ok } from "@/server/api";
+import { currentUserId, handler, ok } from "@/server/api";
 import { attachmentExportRecord, EXPORT_ATTACHMENTS_NOTE } from "@/lib/export-format";
 
 /**
@@ -34,6 +35,7 @@ import { attachmentExportRecord, EXPORT_ATTACHMENTS_NOTE } from "@/lib/export-fo
  * excluded: an export must be safe to share or move between machines.
  */
 export const GET = handler(async (request: Request) => {
+  const userId = await currentUserId();
   const url = new URL(request.url);
   const format = url.searchParams.get("format") ?? "json";
 
@@ -44,7 +46,7 @@ export const GET = handler(async (request: Request) => {
       const text = value === null || value === undefined ? "" : String(value);
       return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
     };
-    const lines = queryTrades(readFilters(url.searchParams)).rows.map((row) =>
+    const lines = queryTrades(readFilters(url.searchParams), userId).rows.map((row) =>
       [
         row.key,
         row.accountId,
@@ -79,28 +81,37 @@ export const GET = handler(async (request: Request) => {
     accounts: db
       .select()
       .from(accounts)
+      .where(eq(accounts.userId, userId))
       .all()
       .map(({ credentialsEnc: _omitted, ...safe }) => safe),
-    executions: db.select().from(executions).all(),
-    trades: db.select().from(trades).all(),
-    journalDays: db.select().from(journalDays).all(),
-    notes: db.select().from(notes).all(),
-    folders: db.select().from(folders).all(),
-    playbooks: db.select().from(playbooks).all(),
-    noteTemplates: db.select().from(noteTemplates).all(),
-    tradeRuleChecks: db.select().from(tradeRuleChecks).all(),
-    progressRules: db.select().from(progressRules).all(),
-    progressChecks: db.select().from(progressChecks).all(),
-    missedTrades: db.select().from(missedTrades).all(),
-    propAccounts: db.select().from(propAccounts).all(),
-    propEntries: db.select().from(propEntries).all(),
-    propReceipts: db.select().from(propReceipts).all(),
-    propAudit: db.select().from(propAudit).all(),
-    journalDefaults: getJournalDefaults(),
+    executions: db.select().from(executions).where(eq(executions.userId, userId)).all(),
+    trades: db.select().from(trades).where(eq(trades.userId, userId)).all(),
+    journalDays: db.select().from(journalDays).where(eq(journalDays.userId, userId)).all(),
+    notes: db.select().from(notes).where(eq(notes.userId, userId)).all(),
+    folders: db.select().from(folders).where(eq(folders.userId, userId)).all(),
+    playbooks: db.select().from(playbooks).where(eq(playbooks.userId, userId)).all(),
+    noteTemplates: db.select().from(noteTemplates).where(eq(noteTemplates.userId, userId)).all(),
+    tradeRuleChecks: db
+      .select()
+      .from(tradeRuleChecks)
+      .where(eq(tradeRuleChecks.userId, userId))
+      .all(),
+    progressRules: db.select().from(progressRules).where(eq(progressRules.userId, userId)).all(),
+    progressChecks: db
+      .select()
+      .from(progressChecks)
+      .where(eq(progressChecks.userId, userId))
+      .all(),
+    missedTrades: db.select().from(missedTrades).where(eq(missedTrades.userId, userId)).all(),
+    propAccounts: db.select().from(propAccounts).where(eq(propAccounts.userId, userId)).all(),
+    propEntries: db.select().from(propEntries).where(eq(propEntries.userId, userId)).all(),
+    propReceipts: db.select().from(propReceipts).where(eq(propReceipts.userId, userId)).all(),
+    propAudit: db.select().from(propAudit).where(eq(propAudit.userId, userId)).all(),
+    journalDefaults: getJournalDefaults(userId),
     settings: {
-      timeZone: getTimeZone(),
-      importTimeZone: getImportTimeZone(),
-      multipliers: getMultipliers(),
+      timeZone: getTimeZone(userId),
+      importTimeZone: getImportTimeZone(userId),
+      multipliers: getMultipliers(userId),
     },
     // Metadata only: attachment binaries stay in the data directory.
     attachments: db
@@ -114,6 +125,7 @@ export const GET = handler(async (request: Request) => {
         createdAt: attachments.createdAt,
       })
       .from(attachments)
+      .where(eq(attachments.userId, userId))
       .all()
       .map(attachmentExportRecord),
   });

@@ -14,13 +14,27 @@ const { GET: savedHistory, POST: loadHistory } =
   await import("../src/app/api/trades/[key]/market-data/route");
 const { GET: listCsv, POST: csvRequest } = await import("../src/app/api/market-data/csv/route");
 const { GET: explorer } = await import("../src/app/api/trade-explorer/route");
-const { connectionKey, connections, saveConnection } =
-  await import("../src/server/market-data/connections");
+const {
+  connectionKey: connectionKeyRaw,
+  connections: connectionsRaw,
+  saveConnection: saveConnectionRaw,
+} = await import("../src/server/market-data/connections");
 const { GET, POST } = await import("../src/app/api/market-data/connections/route");
-const session = vi.hoisted(() => ({ token: undefined as string | undefined }));
-vi.mock("next/headers", () => ({
-  cookies: async () => ({ get: () => (session.token ? { value: session.token } : undefined) }),
+// Better Auth's session check needs a request scope for next/headers'
+// headers(), which a plain vitest call into a route handler doesn't have —
+// stub both so route-level tests run as a fixed signed-in "test-user"
+// without a real HTTP/session round trip. Tests that need "no session"
+// override sessionUser to null for the duration of one call.
+let sessionUser: { id: string } | null = { id: "test-user" };
+vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
+vi.mock("@/server/auth", () => ({
+  auth: { api: { getSession: async () => (sessionUser ? { user: sessionUser, session: {} } : null) } },
 }));
+const TEST_USER = "test-user";
+const connectionKey = (providerId: string) => connectionKeyRaw(providerId, TEST_USER);
+const connections = () => connectionsRaw(TEST_USER);
+const saveConnection = (providerId: string, key: string | null) =>
+  saveConnectionRaw(providerId, key, TEST_USER);
 const id = "london-strategic-edge";
 const request = (body: unknown) =>
   new Request("http://localhost/api/market-data/connections", {
@@ -43,7 +57,7 @@ beforeEach(() => {
     "OANDA_ENVIRONMENT",
   ])
     vi.stubEnv(name, "");
-  vi.stubEnv("JOURNAL_PASSWORD", "");
+  sessionUser = { id: "test-user" };
 });
 
 describe("trade history endpoint", () => {
@@ -55,7 +69,7 @@ describe("trade history endpoint", () => {
   };
   function seed(assetClass: "equity" | "option" = "equity") {
     db.insert(accounts)
-      .values({ id: "fixture", name: "Fixture", kind: "manual", createdAt: "2026-01-01" })
+      .values({ id: "fixture", userId: "test-user", name: "Fixture", kind: "manual", createdAt: "2026-01-01" })
       .run();
     insertExecutions(
       "fixture",
@@ -135,7 +149,7 @@ describe("trade history endpoint", () => {
         .estimate.mae,
     ).toBe(20);
     db.insert(settings)
-      .values({ key: "multipliers", value: JSON.stringify({ TEST: 2 }) })
+      .values({ userId: "test-user", key: "multipliers", value: JSON.stringify({ TEST: 2 }) })
       .run();
     expect(
       (await (await savedHistory(request({}), { params: Promise.resolve({ key }) })).json()).saved,
@@ -229,22 +243,28 @@ describe("trade history endpoint", () => {
     const { importCsvDataset, marketCsv, csvDatasets, removeCsvDataset } =
       await import("../src/server/market-data/csv");
     const start = Date.parse("2025-01-01T00:00:00Z");
-    const id = importCsvDataset({
-      name: "large.csv",
-      symbol: "TEST",
-      resolution: "1m",
-      currency: "USD",
-      priceBasis: "raw",
-      content:
-        "time,open,high,low,close\n" +
-        Array.from({ length: 50_000 }, (_, i) => `${start + i * 60_000},100,104,98,102`).join("\n"),
-    });
-    expect(csvDatasets()[0]?.count).toBe(50_000);
+    const id = importCsvDataset(
+      {
+        name: "large.csv",
+        symbol: "TEST",
+        resolution: "1m",
+        currency: "USD",
+        priceBasis: "raw",
+        content:
+          "time,open,high,low,close\n" +
+          Array.from({ length: 50_000 }, (_, i) => `${start + i * 60_000},100,104,98,102`).join(
+            "\n",
+          ),
+      },
+      TEST_USER,
+    );
+    expect(csvDatasets(TEST_USER)[0]?.count).toBe(50_000);
     const request = {
       symbol: "TEST",
       resolution: "1m" as const,
       from: start + 40_000 * 60_000 + 1000,
       to: start + 40_003 * 60_000,
+      userId: TEST_USER,
     };
     const first = await marketCsv.history(request, "");
     expect(first.bars.map((bar) => bar.time)).toEqual(
@@ -257,7 +277,7 @@ describe("trade history endpoint", () => {
     } finally {
       prepare.mockRestore();
     }
-    removeCsvDataset(id);
+    removeCsvDataset(id, TEST_USER);
     await expect(marketCsv.history(request, "")).rejects.toThrow("No CSV dataset");
   });
   it("validates hundreds of saved estimates with bounded database reads", async () => {
@@ -266,7 +286,7 @@ describe("trade history endpoint", () => {
     const { rowToTrade } = await import("../src/server/trades-query");
     const { tradeExcursions } = await import("../src/db");
     db.insert(accounts)
-      .values({ id: "batch", name: "Batch", kind: "manual", createdAt: "2025-01-01" })
+      .values({ id: "batch", userId: "test-user", name: "Batch", kind: "manual", createdAt: "2025-01-01" })
       .run();
     const start = Date.parse("2025-01-01T10:00:00Z");
     insertExecutions(
@@ -303,6 +323,7 @@ describe("trade history endpoint", () => {
       db.insert(tradeExcursions)
         .values({
           tradeKey: trade.key,
+          userId: TEST_USER,
           fingerprint: estimateFingerprint(trade),
           provider: "Fixture",
           symbol: "TEST",
@@ -313,7 +334,7 @@ describe("trade history endpoint", () => {
         .run();
     const prepare = vi.spyOn(db.$client, "prepare");
     try {
-      expect(savedEstimates(selected).size).toBe(401);
+      expect(savedEstimates(selected, TEST_USER).size).toBe(401);
       expect(prepare.mock.calls.length).toBeLessThanOrEqual(10);
     } finally {
       prepare.mockRestore();
@@ -478,7 +499,7 @@ describe("market data credential lifecycle", () => {
     expect(fetcher.mock.calls).toHaveLength(1);
   });
   it("uses the app's authentication gate for reads and writes", async () => {
-    vi.stubEnv("JOURNAL_PASSWORD", "fixture-password");
+    sessionUser = null;
     expect((await GET()).status).toBe(401);
     expect((await listCsv()).status).toBe(401);
     expect((await csvRequest(request({ action: "remove", id: "anything" }))).status).toBe(401);

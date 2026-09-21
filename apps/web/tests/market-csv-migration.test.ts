@@ -22,7 +22,10 @@ legacy.close();
 const { db, marketCsvDatasets } = await import("../src/db");
 const { csvDatasets } = await import("../src/server/market-data/csv");
 it("backfills existing CSV metadata without modifying candle data", () => {
-  expect(csvDatasets()).toMatchObject([
+  // This row predates per-user ownership too, so db/index.ts's migration
+  // stamps it with the same '' placeholder as everything else (see
+  // server/legacy-migration.ts) — nothing here reassigns it to a real user.
+  expect(csvDatasets("")).toMatchObject([
     { id: "legacy", count: 1, from: "2025-01-01T00:00:00.000Z", to: "2025-01-01T00:01:00.000Z" },
   ]);
   expect(db.select().from(marketCsvDatasets).get()?.barsJson).toBe(barsJson);

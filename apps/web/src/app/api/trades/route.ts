@@ -1,15 +1,16 @@
 import { readFilters } from "@luxalgo/journal-core";
 import { computeMetrics } from "@luxalgo/journal-core";
-import { handler, ok } from "@/server/api";
+import { currentUserId, handler, ok } from "@/server/api";
 import { getTimeZone } from "@/server/settings";
 import { queryTrades, type TradeFilters } from "@/server/trades-query";
 
 const filtersFrom = (url: URL): TradeFilters => readFilters(url.searchParams);
 
 export const GET = handler(async (request: Request) => {
+  const userId = await currentUserId();
   const url = new URL(request.url);
-  const { rows, trades } = queryTrades(filtersFrom(url));
-  const timeZone = getTimeZone();
+  const { rows, trades } = queryTrades(filtersFrom(url), userId);
+  const timeZone = getTimeZone(userId);
   const metrics = computeMetrics(trades, { timeZone });
   const listView = url.searchParams.get("view") === "list";
   return ok({

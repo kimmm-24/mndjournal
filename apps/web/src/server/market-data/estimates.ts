@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { AnnotatedTrade } from "@luxalgo/journal-core";
 import { accounts, db, tradeExcursions, marketCsvDatasets, executions } from "@/db";
 import type { ExcursionEstimate, TradeMarketResult } from "@/lib/market-data";
@@ -63,6 +63,7 @@ export function saveEstimate(
   trade: AnnotatedTrade,
   history: TradeMarketResult,
   fingerprint: string,
+  userId: string,
 ) {
   // A chart-only load must not erase a previously confirmed estimate.
   if (history.estimate.mae === null || history.estimate.mfe === null) return;
@@ -72,12 +73,13 @@ export function saveEstimate(
     !db
       .select({ id: marketCsvDatasets.id })
       .from(marketCsvDatasets)
-      .where(eq(marketCsvDatasets.id, history.datasetId))
+      .where(and(eq(marketCsvDatasets.id, history.datasetId), eq(marketCsvDatasets.userId, userId)))
       .get()
   )
     return;
   const values = {
     tradeKey: trade.key,
+    userId,
     fingerprint,
     provider: history.provider,
     symbol: history.symbol,
@@ -91,11 +93,15 @@ export function saveEstimate(
     .run();
 }
 
-export function savedEstimates(trades: AnnotatedTrade[]) {
+export function savedEstimates(trades: AnnotatedTrade[], userId: string) {
   const stored = new Map(
     chunks(trades.map((trade) => trade.key))
       .flatMap((keys) =>
-        db.select().from(tradeExcursions).where(inArray(tradeExcursions.tradeKey, keys)).all(),
+        db
+          .select()
+          .from(tradeExcursions)
+          .where(and(inArray(tradeExcursions.tradeKey, keys), eq(tradeExcursions.userId, userId)))
+          .all(),
       )
       .map((row) => [row.tradeKey, row]),
   );
@@ -124,6 +130,7 @@ export function savedEstimates(trades: AnnotatedTrade[]) {
     db
       .select({ id: marketCsvDatasets.id })
       .from(marketCsvDatasets)
+      .where(eq(marketCsvDatasets.userId, userId))
       .all()
       .map((row) => row.id),
   );

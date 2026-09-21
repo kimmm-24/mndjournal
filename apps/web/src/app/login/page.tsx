@@ -28,7 +28,7 @@ export default function LoginPage() {
       setError(signInError.message ?? "Wrong email or password");
       return;
     }
-    router.push("/");
+    router.push("/dashboard");
     router.refresh();
   };
 
@@ -37,7 +37,7 @@ export default function LoginPage() {
     setError(null);
     const { error: signInError } = await authClient.signIn.social({
       provider: "google",
-      callbackURL: "/",
+      callbackURL: "/dashboard",
     });
     if (signInError) {
       setGoogleSubmitting(false);

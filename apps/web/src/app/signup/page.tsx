@@ -33,7 +33,7 @@ export default function SignupPage() {
       setError(signUpError.message ?? "Could not create account");
       return;
     }
-    router.push("/");
+    router.push("/dashboard");
     router.refresh();
   };
 
@@ -42,7 +42,7 @@ export default function SignupPage() {
     setError(null);
     const { error: signInError } = await authClient.signIn.social({
       provider: "google",
-      callbackURL: "/",
+      callbackURL: "/dashboard",
     });
     if (signInError) {
       setGoogleSubmitting(false);

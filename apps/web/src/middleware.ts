@@ -7,9 +7,11 @@ import { getSessionCookie } from "better-auth/cookies";
  * the session itself. It gates navigation; server/api.ts's `handler` gates
  * data by verifying the session for real against the database.
  */
+const PUBLIC_PATHS = new Set(["/", "/login", "/signup", "/pricing", "/terms", "/privacy", "/contact"]);
+
 export const middleware = (request: NextRequest) => {
   const { pathname } = request.nextUrl;
-  if (pathname === "/login" || pathname === "/signup" || pathname.startsWith("/api/auth")) {
+  if (PUBLIC_PATHS.has(pathname) || pathname.startsWith("/api/auth")) {
     return NextResponse.next();
   }
   const sessionCookie = getSessionCookie(request);
@@ -23,5 +25,8 @@ export const middleware = (request: NextRequest) => {
 };
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Skip Next internals and any request for a static file (has a dot in the
+  // last path segment, e.g. /logo.png, /favicon.ico, /robots.txt) — those
+  // are served straight from /public and were never meant to be auth-gated.
+  matcher: ["/((?!_next/static|_next/image|.*\\.[^/]+$).*)"],
 };

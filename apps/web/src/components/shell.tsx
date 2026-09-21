@@ -33,7 +33,7 @@ import { Button } from "./ui/button";
 import { HoverHint } from "./ui/tooltip";
 
 const NAV = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/journal", label: "Daily journal", icon: NotebookPen },
   { href: "/trades", label: "Trades", icon: ListOrdered },
@@ -52,6 +52,17 @@ const NAV_SETUP = [
 ] as const;
 
 const SIDEBAR_COLLAPSED_KEY = "journal-sidebar-collapsed-v1";
+
+// Public marketing/auth routes render their own layout — no sidebar chrome.
+const PUBLIC_SHELL_BYPASS = new Set([
+  "/",
+  "/login",
+  "/signup",
+  "/pricing",
+  "/terms",
+  "/privacy",
+  "/contact",
+]);
 
 function NavLink({
   href,
@@ -145,7 +156,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     if (value) filterQuery.set(key, value);
   }
   if (search.get("range")) filterQuery.set("range", search.get("range")!);
-  if (pathname === "/login") return <>{children}</>;
+  if (PUBLIC_SHELL_BYPASS.has(pathname)) return <>{children}</>;
   const navigation = (collapsed = false) => (
     <nav
       aria-label="Journal navigation"
@@ -161,7 +172,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           label={label}
           icon={icon}
           collapsed={collapsed}
-          active={href === "/" ? pathname === "/" : pathname.startsWith(href)}
+          active={href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href)}
         />
       ))}
       <div className="!my-3 border-t" />
@@ -238,7 +249,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </DialogPrimitive.Portal>
         </DialogPrimitive.Root>
         <Link
-          href="/"
+          href="/dashboard"
           className="mr-auto flex min-w-0 items-center gap-2 text-sm font-semibold tracking-tight"
         >
           <LuxAlgoMark className="hidden h-4 w-[18px] shrink-0 min-[380px]:block" />
@@ -253,7 +264,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
         data-ready={sidebarReady}
       >
         <div className="journal-sidebar-header relative flex h-14 shrink-0 items-center border-b">
-          <Link href="/" className="journal-sidebar-home flex h-full min-w-0 items-center gap-2.5">
+          <Link
+            href="/dashboard"
+            className="journal-sidebar-home flex h-full min-w-0 items-center gap-2.5"
+          >
             <LuxAlgoMark className="h-[18px] w-5 shrink-0" />
             <span className="journal-sidebar-brand-label text-sm font-semibold tracking-tight">
               Trade Journal

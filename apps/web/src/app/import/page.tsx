@@ -227,7 +227,7 @@ function FileImport() {
       alert(
         `Imported ${result.inserted} executions (${result.duplicates} duplicates skipped).${skippedNote}`,
       );
-      router.push("/");
+      router.push("/dashboard");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Import failed");
     } finally {
@@ -470,7 +470,7 @@ function BrokerConnect() {
         broker: broker.id,
         credentials,
       });
-      router.push("/");
+      router.push("/dashboard");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Connection failed");
     } finally {

@@ -137,7 +137,24 @@ const createDb = () => {
   return drizzle(sqlite, { schema });
 };
 
-/** Singleton across Next dev hot reloads. */
-export const db = globalForDb.__journalDb ?? (globalForDb.__journalDb = createDb());
+/**
+ * Singleton across Next dev hot reloads. Lazy: Next's build-time "collecting
+ * page data" step imports every route module just to read its exports (e.g.
+ * `dynamic`) — it never calls a handler. If opening the database and running
+ * migrations happened at module load, that step alone would open the sqlite
+ * file (and run its migration DDL) once per build worker process, all
+ * hitting the same file concurrently and tripping SQLITE_BUSY. Routing every
+ * property access through this proxy defers that work until a request
+ * actually runs a query, without changing any of the `db.select(...)` /
+ * `db.query.x.findMany(...)` call sites that already exist.
+ */
+function getDb() {
+  return globalForDb.__journalDb ?? (globalForDb.__journalDb = createDb());
+}
+
+export const db = new Proxy({} as ReturnType<typeof createDb>, {
+  get: (_target, prop, receiver) => Reflect.get(getDb(), prop, receiver),
+  has: (_target, prop) => Reflect.has(getDb(), prop),
+});
 
 export * from "./schema";

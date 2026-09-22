@@ -197,6 +197,22 @@ CREATE TABLE IF NOT EXISTS prop_audit (
 );
 CREATE INDEX IF NOT EXISTS prop_audit_entity ON prop_audit(entity_type, entity_id);
 
+-- Brand new tables (no pre-existing installs ever had a different shape for
+-- these), so unlike the tables above they need no ALTER-TABLE dance in
+-- db/index.ts — the final shape, indexes included, is safe to create here
+-- directly on every install, old or new.
+CREATE TABLE IF NOT EXISTS subscriptions (
+  user_id TEXT PRIMARY KEY,
+  plan TEXT NOT NULL DEFAULT 'starter',
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS ai_usage (
+  user_id TEXT NOT NULL,
+  month TEXT NOT NULL,
+  count INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_id, month)
+);
+
 -- Better Auth's own tables (see db/schema.ts for the Drizzle side and why the
 -- field/table names below must match Better Auth's schema exactly).
 CREATE TABLE IF NOT EXISTS user (

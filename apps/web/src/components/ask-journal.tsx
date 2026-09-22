@@ -5,7 +5,8 @@ import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { postJson } from "@/lib/use-api";
+import { postJson, useApi } from "@/lib/use-api";
+import { quotaExceededMessage, type AiAccessStatus } from "@/lib/ai-quota";
 import { AiNotice } from "./ai-notice";
 
 const SUGGESTIONS = [
@@ -16,11 +17,19 @@ const SUGGESTIONS = [
 
 /** Natural-language questions against your own aggregates — BYO AI provider key. */
 export function AskJournal() {
+  const { data: aiAccess } = useApi<AiAccessStatus>("/api/ai/status");
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastQuestion, setLastQuestion] = useState("");
+  const [quotaDismissed, setQuotaDismissed] = useState(false);
+
+  // Not offered at all on the starter plan — not just disabled, per the pricing page.
+  if (!aiAccess || aiAccess.plan === "starter") return null;
+
+  const quotaMessage = !aiAccess.allowed ? quotaExceededMessage(aiAccess) : null;
+  const displayedError = error ?? (quotaDismissed ? null : quotaMessage);
 
   const ask = async (q: string) => {
     if (busy || !q.trim()) return;
@@ -58,7 +67,7 @@ export function AskJournal() {
             onChange={(event) => setQuestion(event.target.value)}
             placeholder="Why do my Monday shorts keep failing?"
           />
-          <Button type="submit" disabled={busy || !question.trim()}>
+          <Button type="submit" disabled={busy || !question.trim() || !aiAccess.allowed}>
             <Sparkles />
             {busy ? "Thinking…" : "Ask"}
           </Button>
@@ -67,7 +76,7 @@ export function AskJournal() {
           {SUGGESTIONS.map((suggestion) => (
             <button
               key={suggestion}
-              disabled={busy}
+              disabled={busy || !aiAccess.allowed}
               className="rounded-full border px-2.5 py-1 text-xs text-muted-foreground hover:bg-accent disabled:cursor-wait disabled:opacity-50"
               onClick={() => {
                 setQuestion(suggestion);
@@ -78,11 +87,14 @@ export function AskJournal() {
             </button>
           ))}
         </div>
-        {error && (
+        {displayedError && (
           <AiNotice
-            error={error}
+            error={displayedError}
             onRetry={() => void ask(lastQuestion)}
-            onDismiss={() => setError(null)}
+            onDismiss={() => {
+              setError(null);
+              setQuotaDismissed(true);
+            }}
           />
         )}
         {answer && <p className="whitespace-pre-wrap pt-1 text-sm leading-relaxed">{answer}</p>}

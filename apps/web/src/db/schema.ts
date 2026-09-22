@@ -407,6 +407,36 @@ export const propAudit = sqliteTable(
 );
 
 /**
+ * One row per user, created lazily on first plan change. No row = 'starter'
+ * (see server/ai-quota.ts's getPlan) — this is intentional, not a migration
+ * gap: it's what makes every existing account, including the legacy migrated
+ * one, default to 'starter' without a backfill. There is no payment provider
+ * wired up yet, so this is changed with a direct SQL update until Midtrans
+ * integration lands.
+ */
+export const subscriptions = sqliteTable("subscriptions", {
+  userId: text("user_id").primaryKey(),
+  plan: text("plan", { enum: ["starter", "pro", "elite"] }).notNull().default("starter"),
+  updatedAt: text("updated_at").notNull(),
+});
+
+/**
+ * Combined recap + critique + ask-journal call count per user per calendar
+ * month (UTC), keyed by a "YYYY-MM" string so a new month is simply a new
+ * row — no reset job needed. Enforced in server/ai.ts's runAi, the single
+ * choke point all three AI routes already call through.
+ */
+export const aiUsage = sqliteTable(
+  "ai_usage",
+  {
+    userId: text("user_id").notNull(),
+    month: text("month").notNull(),
+    count: integer("count").notNull().default(0),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.month] })],
+);
+
+/**
  * Better Auth's own tables (email + password accounts, sessions, stored
  * credential hashes). Managed exclusively through the `auth` object in
  * server/auth.ts — the rest of the app never queries these directly, it

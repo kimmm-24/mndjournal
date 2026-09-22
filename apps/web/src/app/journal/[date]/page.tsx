@@ -20,6 +20,7 @@ import { ReviewExport } from "@/components/review-export";
 import { useAutosave } from "@/lib/use-autosave";
 import { postJson, useApi } from "@/lib/use-api";
 import { fmtMoney, fmtNumber, fmtPercent } from "@/lib/utils";
+import { quotaExceededMessage, type AiAccessStatus } from "@/lib/ai-quota";
 
 interface TradeRowLite {
   key: string;
@@ -53,12 +54,19 @@ export default function JournalDayPage({ params }: { params: Promise<{ date: str
 function JournalDay({ date }: { date: string }) {
   const { query } = useFilters();
   const { data, error } = useApi<DayPayload>(`/api/journal/${date}?${query}`);
+  const { data: aiAccess } = useApi<AiAccessStatus>("/api/ai/status");
   const [note, setNote] = useState<string | null>(null);
   const noteEditor = useRef<RichEditorHandle>(null);
   const { save, status: saving, flush } = useAutosave(`/api/journal/${date}`, "PUT");
   const [aiBusy, setAiBusy] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [quotaDismissed, setQuotaDismissed] = useState(false);
   const noteValue = note ?? data?.note ?? "";
+  const quotaMessage =
+    aiAccess && aiAccess.plan !== "starter" && !aiAccess.allowed
+      ? quotaExceededMessage(aiAccess)
+      : null;
+  const displayedAiError = aiError ?? (quotaDismissed ? null : quotaMessage);
   const scheduleSave = (value: string) => {
     setNote(value);
     save({ note: value });
@@ -205,24 +213,29 @@ function JournalDay({ date }: { date: string }) {
                   )
                 }
               />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={generateRecap}
-                disabled={aiBusy || !data}
-              >
-                <Sparkles />
-                {aiBusy ? "Writing…" : "AI recap"}
-              </Button>
+              {aiAccess && aiAccess.plan !== "starter" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={generateRecap}
+                  disabled={aiBusy || !data || !aiAccess.allowed}
+                >
+                  <Sparkles />
+                  {aiBusy ? "Writing…" : "AI recap"}
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent>
-            {aiError && (
+            {displayedAiError && (
               <div className="mb-4">
                 <AiNotice
-                  error={aiError}
+                  error={displayedAiError}
                   onRetry={() => void generateRecap()}
-                  onDismiss={() => setAiError(null)}
+                  onDismiss={() => {
+                    setAiError(null);
+                    setQuotaDismissed(true);
+                  }}
                 />
               </div>
             )}

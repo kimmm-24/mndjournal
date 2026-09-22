@@ -39,6 +39,7 @@ import { postJson, useApi } from "@/lib/use-api";
 import { fmtDuration, fmtMoney, fmtNumber, fmtPercent } from "@/lib/utils";
 import { tradeKeyFromSegment } from "@/lib/trade-links";
 import { formatTimestamp } from "@/lib/timezone";
+import { quotaExceededMessage, type AiAccessStatus } from "@/lib/ai-quota";
 
 interface TradeDetail {
   riskAmount: number | null;
@@ -93,9 +94,16 @@ function TradeView({ tradeKey }: { tradeKey: string }) {
     executions: ExecutionRow[];
     timeZone: string;
   }>(`/api/trades/${encodeURIComponent(tradeKey)}`);
+  const { data: aiAccess } = useApi<AiAccessStatus>("/api/ai/status");
   const [aiBusy, setAiBusy] = useState(false);
   const [critique, setCritique] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [quotaDismissed, setQuotaDismissed] = useState(false);
+  const quotaMessage =
+    aiAccess && aiAccess.plan !== "starter" && !aiAccess.allowed
+      ? quotaExceededMessage(aiAccess)
+      : null;
+  const displayedAiError = aiError ?? (quotaDismissed ? null : quotaMessage);
 
   if (!data) {
     return (
@@ -272,20 +280,29 @@ function TradeView({ tradeKey }: { tradeKey: string }) {
         <div className="min-w-0 space-y-3">
           <AnnotationsCard key={trade.key} trade={trade} onPatch={patch} />
           <RuleChecklist tradeKey={trade.key} playbookId={trade.playbookId} />
+          {aiAccess && aiAccess.plan !== "starter" && (
           <Card>
             <CardHeader className="flex-row items-center justify-between">
               <CardTitle>AI review</CardTitle>
-              <Button variant="outline" size="sm" onClick={askCritique} disabled={aiBusy}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={askCritique}
+                disabled={aiBusy || !aiAccess.allowed}
+              >
                 <Sparkles />
                 {aiBusy ? "Thinking…" : "Critique this trade"}
               </Button>
             </CardHeader>
-            {aiError && (
+            {displayedAiError && (
               <CardContent>
                 <AiNotice
-                  error={aiError}
+                  error={displayedAiError}
                   onRetry={() => void askCritique()}
-                  onDismiss={() => setAiError(null)}
+                  onDismiss={() => {
+                    setAiError(null);
+                    setQuotaDismissed(true);
+                  }}
                 />
               </CardContent>
             )}
@@ -295,6 +312,7 @@ function TradeView({ tradeKey }: { tradeKey: string }) {
               </CardContent>
             )}
           </Card>
+          )}
         </div>
       </div>
     </div>

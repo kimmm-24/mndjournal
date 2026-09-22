@@ -17,7 +17,7 @@ vi.mock("@/server/auth", () => ({
   auth: { api: { getSession: async () => (sessionUser ? { user: sessionUser, session: {} } : null) } },
 }));
 const TEST_USER = "test-user";
-const { db, settings } = await import("../src/db");
+const { db, settings, subscriptions, aiUsage } = await import("../src/db");
 const {
   getAiKey: getAiKeyRaw,
   getAiModel: getAiModelRaw,
@@ -49,6 +49,13 @@ const state = async () => (await GET()).json();
 
 beforeEach(() => {
   db.delete(settings).run();
+  db.delete(aiUsage).run();
+  // This file exercises runAi's own provider/key/model logic, not the AI
+  // quota gate — give it a plan with quota so that gate never interferes.
+  db.insert(subscriptions)
+    .values({ userId: TEST_USER, plan: "pro", updatedAt: new Date().toISOString() })
+    .onConflictDoUpdate({ target: subscriptions.userId, set: { plan: "pro" } })
+    .run();
   sessionUser = { id: TEST_USER };
   vi.stubEnv("ANTHROPIC_API_KEY", "");
   vi.stubEnv("OPENAI_API_KEY", "");

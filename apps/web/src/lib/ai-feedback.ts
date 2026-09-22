@@ -16,6 +16,19 @@ export function aiFeedback(message: string): AiFeedback {
       tone: "info",
       action: { label: "Set up AI", href: "/settings#ai-settings" },
     };
+  if (/not included in your plan/i.test(message))
+    return {
+      title: "Upgrade to use AI features",
+      description: message,
+      tone: "info",
+      action: { label: "See plans", href: "/pricing" },
+    };
+  if (/AI quota for this month is used up/i.test(message))
+    return {
+      title: "Monthly AI quota reached",
+      description: message,
+      tone: "info",
+    };
   if (
     /invalid.*(?:api.?key|x-api-key)|incorrect api key|authentication_error|invalid_api_key/i.test(
       message,

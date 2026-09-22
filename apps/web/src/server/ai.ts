@@ -2,6 +2,7 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
 import { APICallError, RetryError, generateText } from "ai";
 import { getAiKey, getAiModel, getAiProvider } from "./settings";
+import { assertAiAccess, recordAiUsage } from "./ai-quota";
 import { AI_PROVIDER_NAMES } from "@/lib/ai-settings";
 
 /**
@@ -24,6 +25,10 @@ export const runAi = async (
   maxOutputTokens = 1200,
   userId?: string,
 ): Promise<string> => {
+  // Plan + quota gates the feature itself, independent of whose key is used —
+  // a starter-plan user's own pasted key still isn't enough, matching the
+  // pricing page's "AI Reflection: not included" for that tier.
+  if (userId) assertAiAccess(userId);
   const provider = getAiProvider(userId);
   const apiKey = getAiKey(provider, userId);
   if (!apiKey) {
@@ -44,6 +49,7 @@ export const runAi = async (
       maxOutputTokens,
     });
     if (!result.text.trim()) throw new Error("AI returned no text. Check the model or try again.");
+    if (userId) recordAiUsage(userId);
     return result.text;
   } catch (error) {
     if (RetryError.isInstance(error)) error = error.lastError;

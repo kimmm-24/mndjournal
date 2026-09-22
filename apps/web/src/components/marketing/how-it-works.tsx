@@ -7,7 +7,7 @@ const STEPS = [
   {
     number: "02",
     title: "Catat Tiap Trade",
-    body: "Input trade secara manual atau import dari broker/CSV — semua data trading Gold Anda tersimpan rapi di satu tempat.",
+    body: "Input trade secara manual atau import dari broker/CSV — semua data trading Anda tersimpan rapi di satu tempat.",
   },
   {
     number: "03",

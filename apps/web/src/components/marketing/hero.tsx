@@ -13,17 +13,18 @@ export function Hero() {
       />
       <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
         <span className="inline-flex items-center rounded-full border border-[#2a3245] bg-[#1c2230] px-3.5 py-1.5 text-xs font-medium text-[#9aa4b8]">
-          Dibuat khusus untuk trader Gold/XAU Indonesia
+          Trading journal untuk semua jenis trader Indonesia
         </span>
 
         <h1 className="mt-6 text-4xl font-bold tracking-tight text-white sm:text-5xl">
-          Catat dan Tingkatkan Performa Trading{" "}
-          <span className="text-[#4d8dff]">XAU/USD</span> Anda
+          Catat dan Tingkatkan{" "}
+          <span className="text-[#4d8dff]">Performa Trading</span> Anda
         </h1>
 
         <p className="mx-auto mt-5 max-w-xl text-base text-[#9aa4b8] sm:text-lg">
-          Jurnal trading yang dirancang khusus untuk trader gold harian — catat setiap posisi,
-          pahami pola kemenangan Anda, dan perbaiki strategi dengan data, bukan tebakan.
+          Jurnal trading yang dirancang untuk trader Indonesia di semua instrumen — saham, forex,
+          futures, crypto, gold, dan lainnya — catat setiap posisi, pahami pola kemenangan Anda,
+          dan perbaiki strategi dengan data, bukan tebakan.
         </p>
 
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">

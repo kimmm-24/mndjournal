@@ -10,9 +10,9 @@ import { PricingSection } from "@/components/marketing/pricing-section";
 import { FinalCta } from "@/components/marketing/final-cta";
 
 export const metadata: Metadata = {
-  title: "mndjournal — Jurnal Trading Gold/XAU untuk Trader Indonesia",
+  title: "mndjournal — Jurnal Trading untuk Semua Jenis Trader Indonesia",
   description:
-    "Catat, analisa, dan tingkatkan performa trading XAU/USD Anda dengan journal, dashboard analytics, dan AI reflection yang dirancang khusus untuk trader gold harian di Indonesia.",
+    "Catat, analisa, dan tingkatkan performa trading Anda — saham, forex, futures, crypto, gold, dan lainnya — dengan journal, dashboard analytics, dan AI reflection yang dirancang untuk trader Indonesia.",
 };
 
 export default function LandingPage() {

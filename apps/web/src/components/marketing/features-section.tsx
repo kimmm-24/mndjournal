@@ -4,7 +4,7 @@ const FEATURES = [
   {
     icon: NotebookPen,
     title: "Journal Trading Manual",
-    body: "Catat setiap trade secara manual dengan tagging setup, emosi, dan kondisi market. Bangun riwayat lengkap dari setiap keputusan trading Gold Anda.",
+    body: "Catat setiap trade secara manual dengan tagging setup, emosi, dan kondisi market. Bangun riwayat lengkap dari setiap keputusan trading Anda.",
   },
   {
     icon: LayoutDashboard,
@@ -24,11 +24,11 @@ export function FeaturesSection() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            Semua yang Anda Butuhkan untuk Trading Gold yang Lebih Disiplin
+            Semua yang Anda Butuhkan untuk Trading yang Lebih Disiplin
           </h2>
           <p className="mt-3 text-[#9aa4b8]">
-            Dirancang khusus untuk trader XAU/USD harian — bukan jurnal generik yang dipaksakan
-            untuk semua instrumen.
+            Dirancang untuk trader di semua instrumen — saham, forex, futures, crypto, gold, dan
+            lainnya.
           </p>
         </div>
 

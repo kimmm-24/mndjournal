@@ -17,9 +17,10 @@ export default function TermsPage() {
           <LegalSection heading="1. Tentang Layanan">
             <p>
               mndjournal ("kami", "layanan") adalah aplikasi jurnal trading yang membantu Anda
-              mencatat, mengorganisir, dan menganalisa riwayat trading Anda, dengan fokus pada
-              trader XAU/USD (Gold) harian. Dengan membuat akun atau menggunakan layanan ini, Anda
-              setuju untuk terikat pada syarat dan ketentuan berikut.
+              mencatat, mengorganisir, dan menganalisa riwayat trading Anda di berbagai
+              instrumen — saham, forex, futures, crypto, gold, dan lainnya. Dengan membuat akun
+              atau menggunakan layanan ini, Anda setuju untuk terikat pada syarat dan ketentuan
+              berikut.
             </p>
           </LegalSection>
 

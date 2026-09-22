@@ -20,7 +20,7 @@ export function MarketingFooter() {
               <span className="text-sm font-semibold tracking-tight text-white">mndjournal</span>
             </Link>
             <p className="mt-3 max-w-xs text-sm text-[#7d879e]">
-              Jurnal trading untuk trader XAU/USD (Gold) harian di Indonesia — catat, analisa, dan
+              Jurnal trading untuk trader di semua instrumen di Indonesia — catat, analisa, dan
               perbaiki strategi Anda dengan data.
             </p>
           </div>

@@ -6,7 +6,7 @@ export function FinalCta() {
     <section className="bg-[#0e1119] py-20 sm:py-24">
       <div className="mx-auto max-w-2xl px-4 text-center sm:px-6">
         <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-          Mulai Journaling Trading Gold Anda Hari Ini
+          Mulai Journaling Trading Anda Hari Ini
         </h2>
         <p className="mt-3 text-[#9aa4b8]">
           Gratis untuk mulai. Tidak perlu kartu kredit.

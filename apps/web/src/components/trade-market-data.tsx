@@ -25,9 +25,12 @@ import { OptionSelect } from "./ui/option-select";
 export function TradeMarketData({
   trade,
   executions,
+  replayAllowed,
 }: {
   trade: ChartTrade & { currency: string };
   executions: ChartExecution[];
+  /** Trade replay is a Pro/Elite feature — undefined means "still loading plan status". */
+  replayAllowed: boolean | undefined;
 }) {
   const privacy = usePrivacy();
   const { data: saved, refresh: refreshSaved } = useApi<{
@@ -285,12 +288,20 @@ export function TradeMarketData({
         </p>
       )}
       {result && result.bars.length > 0 ? (
-        <HistoricalReplay
-          history={result}
-          trade={trade}
-          executions={executions}
-          privacy={privacy}
-        />
+        replayAllowed ? (
+          <HistoricalReplay
+            history={result}
+            trade={trade}
+            executions={executions}
+            privacy={privacy}
+          />
+        ) : (
+          <Card>
+            <CardContent className="p-4 text-sm text-muted-foreground">
+              Trade replay is available on Pro and Elite plans.
+            </CardContent>
+          </Card>
+        )
       ) : (
         <>
           <div
@@ -328,7 +339,11 @@ export function TradeMarketData({
             <div>
               <p className="text-xs text-muted-foreground">Trade replay</p>
               <p className="text-sm">
-                {busy ? "Loading candles…" : "Available after candles load"}
+                {replayAllowed === false
+                  ? "Available on Pro and Elite plans"
+                  : busy
+                    ? "Loading candles…"
+                    : "Available after candles load"}
               </p>
             </div>
           </div>

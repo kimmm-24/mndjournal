@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FileUp, Landmark, PencilLine } from "lucide-react";
 import { AccountPicker } from "@/components/account-picker";
@@ -24,6 +24,7 @@ import { decodeImportFile } from "@/lib/decode-import";
 import { formatTimestamp, isTimeZone } from "@/lib/timezone";
 import { dayKeyOf } from "@luxalgo/journal-core";
 import { TimeZonePicker } from "@/components/timezone-picker";
+import type { Plan } from "@/lib/plan";
 
 interface BrokerInfo {
   id: string;
@@ -68,31 +69,46 @@ export default function ImportPage() {
 
 function ImportView() {
   const router = useRouter();
+  const { data: planData } = useApi<{ plan: Plan }>("/api/plan");
+  // Hidden until confirmed non-starter — never flashes restricted tabs while loading.
+  const syncImportAllowed = planData ? planData.plan !== "starter" : false;
+  const [tab, setTab] = useState("manual");
+  useEffect(() => {
+    if (syncImportAllowed) setTab((current) => (current === "manual" ? "file" : current));
+  }, [syncImportAllowed]);
   return (
     <div>
       <FilterBar title="Import trades" />
       <div className="mx-auto max-w-3xl p-4">
-        <Tabs defaultValue="file">
+        <Tabs value={tab} onValueChange={setTab}>
           <TabsList>
-            <TabsTrigger value="file" className="max-sm:px-2 max-sm:text-xs">
-              <FileUp className="mr-1.5 hidden h-4 w-4 min-[420px]:block" />
-              File upload
-            </TabsTrigger>
-            <TabsTrigger value="sync" className="max-sm:px-2 max-sm:text-xs">
-              <Landmark className="mr-1.5 hidden h-4 w-4 min-[420px]:block" />
-              Broker sync
-            </TabsTrigger>
+            {syncImportAllowed && (
+              <TabsTrigger value="file" className="max-sm:px-2 max-sm:text-xs">
+                <FileUp className="mr-1.5 hidden h-4 w-4 min-[420px]:block" />
+                File upload
+              </TabsTrigger>
+            )}
+            {syncImportAllowed && (
+              <TabsTrigger value="sync" className="max-sm:px-2 max-sm:text-xs">
+                <Landmark className="mr-1.5 hidden h-4 w-4 min-[420px]:block" />
+                Broker sync
+              </TabsTrigger>
+            )}
             <TabsTrigger value="manual" className="max-sm:px-2 max-sm:text-xs">
               <PencilLine className="mr-1.5 hidden h-4 w-4 min-[420px]:block" />
               Manual
             </TabsTrigger>
           </TabsList>
-          <TabsContent value="file">
-            <FileImport />
-          </TabsContent>
-          <TabsContent value="sync">
-            <BrokerConnect />
-          </TabsContent>
+          {syncImportAllowed && (
+            <TabsContent value="file">
+              <FileImport />
+            </TabsContent>
+          )}
+          {syncImportAllowed && (
+            <TabsContent value="sync">
+              <BrokerConnect />
+            </TabsContent>
+          )}
           <TabsContent value="manual">
             <Card>
               <CardHeader>

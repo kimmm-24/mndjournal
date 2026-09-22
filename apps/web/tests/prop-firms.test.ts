@@ -34,6 +34,7 @@ const {
   propAudit,
   accounts,
   settings,
+  subscriptions,
   trades,
   attachments,
 } = await import("../src/db");
@@ -120,6 +121,13 @@ beforeEach(() => {
   db.delete(propAccounts).run();
   db.delete(accounts).run();
   db.delete(settings).run();
+  // This file exercises prop-account lifecycle/lineage, not the plan gate on
+  // it (which is covered elsewhere) — elite avoids the 1-account pro cap
+  // interfering with multi-account/multi-phase fixtures.
+  db.insert(subscriptions)
+    .values({ userId: TEST_USER, plan: "elite", updatedAt: new Date().toISOString() })
+    .onConflictDoUpdate({ target: subscriptions.userId, set: { plan: "elite" } })
+    .run();
   sessionUser = { id: TEST_USER };
 });
 afterEach(() => vi.unstubAllEnvs());

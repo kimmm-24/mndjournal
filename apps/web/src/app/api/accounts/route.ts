@@ -1,9 +1,15 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, count, eq } from "drizzle-orm";
 import { accounts, db } from "@/db";
 import { bad, currentUserId, handler, ok } from "@/server/api";
 import { encryptJson } from "@/server/crypto";
 import { newId, nowIso } from "@/server/ids";
 import { syncAccount } from "@/server/sync";
+import {
+  accountLimitMessage,
+  getAccountLimit,
+  getPlan,
+  SYNC_IMPORT_NOT_INCLUDED_MESSAGE,
+} from "@/server/plan";
 
 export const GET = handler(async (request: Request) => {
   const userId = await currentUserId();
@@ -55,6 +61,15 @@ export const POST = handler(async (request: Request) => {
   if (body.kind === "sync" && (!body.broker || !body.credentials)) {
     return bad("sync accounts need a broker and credentials");
   }
+
+  const plan = getPlan(userId);
+  if (body.kind !== "manual" && plan === "starter") {
+    return bad(SYNC_IMPORT_NOT_INCLUDED_MESSAGE, 403);
+  }
+  const limit = getAccountLimit(plan);
+  const existing = db.select({ n: count() }).from(accounts).where(eq(accounts.userId, userId)).get()!
+    .n;
+  if (existing >= limit) return bad(accountLimitMessage(limit), 403);
 
   const id = newId();
   db.insert(accounts)

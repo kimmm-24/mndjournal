@@ -2,6 +2,7 @@ import { asc, eq } from "drizzle-orm";
 import { db, playbooks, trades } from "@/db";
 import { bad, currentUserId, handler, ok } from "@/server/api";
 import { newId, nowIso } from "@/server/ids";
+import { getPlan, PLAYBOOKS_NOT_INCLUDED_MESSAGE, playbooksAllowed } from "@/server/plan";
 
 export const GET = handler(async () => {
   const userId = await currentUserId();
@@ -30,6 +31,7 @@ export const GET = handler(async () => {
 
 export const POST = handler(async (request: Request) => {
   const userId = await currentUserId();
+  if (!playbooksAllowed(getPlan(userId))) return bad(PLAYBOOKS_NOT_INCLUDED_MESSAGE, 403);
   const body = (await request.json()) as { name?: string; description?: string; rules?: string[] };
   if (!body.name) return bad("name is required");
   const id = newId();

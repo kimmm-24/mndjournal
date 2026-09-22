@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { postJson, useApi } from "@/lib/use-api";
+import type { Plan } from "@/lib/plan";
 
 interface Playbook {
   id: string;
@@ -29,6 +30,8 @@ export default function PlaybooksPage() {
 
 function Playbooks() {
   const { data, refresh } = useApi<{ playbooks: Playbook[] }>("/api/playbooks");
+  const { data: planData } = useApi<{ plan: Plan }>("/api/plan");
+  const playbooksAllowed = planData ? planData.plan !== "starter" : false;
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -55,19 +58,27 @@ function Playbooks() {
       <FilterBar
         title="Playbooks"
         actions={
-          <Button size="sm" onClick={() => setOpen(true)}>
-            <Plus />
-            New playbook
-          </Button>
+          playbooksAllowed ? (
+            <Button size="sm" onClick={() => setOpen(true)}>
+              <Plus />
+              New playbook
+            </Button>
+          ) : undefined
         }
       />
       <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
-        {data?.playbooks.length === 0 && (
-          <p className="col-span-full py-16 text-center text-sm text-muted-foreground">
-            A playbook is a setup you trade on purpose — name it, write its rules, then tag trades
-            with it and let Reports tell you if it actually pays.
-          </p>
-        )}
+        {data?.playbooks.length === 0 &&
+          (playbooksAllowed ? (
+            <p className="col-span-full py-16 text-center text-sm text-muted-foreground">
+              A playbook is a setup you trade on purpose — name it, write its rules, then tag trades
+              with it and let Reports tell you if it actually pays.
+            </p>
+          ) : (
+            <p className="col-span-full py-16 text-center text-sm text-muted-foreground">
+              Playbooks aren't included in your plan. Upgrade to Pro or Elite to create and use
+              playbooks.
+            </p>
+          ))}
         {data?.playbooks.map((playbook) => (
           <Card key={playbook.id}>
             <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">

@@ -219,7 +219,11 @@ function TradeView({ tradeKey }: { tradeKey: string }) {
             </CardContent>
           </Card>
 
-          <TradeMarketData trade={trade} executions={executions} />
+          <TradeMarketData
+            trade={trade}
+            executions={executions}
+            replayAllowed={aiAccess ? aiAccess.plan !== "starter" : undefined}
+          />
 
           {runningPnl.length > 1 && (
             <Card>
@@ -278,7 +282,7 @@ function TradeView({ tradeKey }: { tradeKey: string }) {
         </div>
 
         <div className="min-w-0 space-y-3">
-          <AnnotationsCard key={trade.key} trade={trade} onPatch={patch} />
+          <AnnotationsCard key={trade.key} trade={trade} onPatch={patch} aiAccess={aiAccess} />
           <RuleChecklist tradeKey={trade.key} playbookId={trade.playbookId} />
           {aiAccess && aiAccess.plan !== "starter" && (
           <Card>
@@ -341,9 +345,11 @@ function Meta({
 function AnnotationsCard({
   trade,
   onPatch,
+  aiAccess,
 }: {
   trade: TradeDetail;
   onPatch: (body: Record<string, unknown>) => Promise<void>;
+  aiAccess: AiAccessStatus | null;
 }) {
   const [notes, setNotes] = useState(trade.notes ?? "");
   const noteEditor = useRef<RichEditorHandle>(null);
@@ -361,6 +367,38 @@ function AnnotationsCard({
     status: saveStatus,
     flush,
   } = useAutosave(`/api/trades/${encodeURIComponent(trade.key)}`, "PATCH", () => void onPatch({}));
+
+  const [tagBusy, setTagBusy] = useState(false);
+  const [tagSuggestion, setTagSuggestion] = useState<{
+    playbookId: string | null;
+    playbookName: string | null;
+    reasoning: string;
+  } | null>(null);
+  const [tagError, setTagError] = useState<string | null>(null);
+  const [tagQuotaDismissed, setTagQuotaDismissed] = useState(false);
+  const tagQuotaMessage =
+    aiAccess && aiAccess.plan !== "starter" && !aiAccess.allowed
+      ? quotaExceededMessage(aiAccess)
+      : null;
+  const displayedTagError = tagError ?? (tagQuotaDismissed ? null : tagQuotaMessage);
+
+  const suggestPlaybook = async () => {
+    setTagBusy(true);
+    setTagError(null);
+    setTagSuggestion(null);
+    try {
+      const result = await postJson<{
+        playbookId: string | null;
+        playbookName: string | null;
+        reasoning: string;
+      }>("/api/ai/tag", { key: trade.key });
+      setTagSuggestion(result);
+    } catch (cause) {
+      setTagError(cause instanceof Error ? cause.message : "AI suggestion failed");
+    } finally {
+      setTagBusy(false);
+    }
+  };
 
   const parseList = (value: string) =>
     value
@@ -432,8 +470,31 @@ function AnnotationsCard({
           </div>
         </div>
 
+        {aiAccess && aiAccess.plan !== "starter" && (
         <div>
-          <label className="text-xs text-muted-foreground">Playbook</label>
+          <div className="flex items-center justify-between">
+            <label className="text-xs text-muted-foreground">Playbook</label>
+            {playbookData &&
+              playbookData.playbooks.length > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 gap-1 px-1.5 text-xs text-muted-foreground"
+                  onClick={() => void suggestPlaybook()}
+                  disabled={tagBusy || !aiAccess.allowed}
+                >
+                  <Sparkles className="h-3 w-3" />
+                  {tagBusy ? "Mencari…" : "Sarankan playbook (AI)"}
+                </Button>
+              )}
+          </div>
+          {playbookData &&
+            playbookData.playbooks.length === 0 && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Buat playbook dulu untuk mendapatkan saran AI.
+              </p>
+            )}
           <Select
             value={trade.playbookId ?? "none"}
             onValueChange={(value) => void onPatch({ playbookId: value === "none" ? null : value })}
@@ -450,7 +511,67 @@ function AnnotationsCard({
               ))}
             </SelectContent>
           </Select>
+
+          {displayedTagError && (
+            <div className="mt-2">
+              <AiNotice
+                error={displayedTagError}
+                onRetry={() => void suggestPlaybook()}
+                onDismiss={() => {
+                  setTagError(null);
+                  setTagQuotaDismissed(true);
+                }}
+              />
+            </div>
+          )}
+
+          {tagSuggestion && (
+            <div className="mt-2 rounded-lg border bg-muted/25 p-3">
+              {tagSuggestion.playbookId ? (
+                <>
+                  <p className="text-sm font-medium">{tagSuggestion.playbookName}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{tagSuggestion.reasoning}</p>
+                  <div className="mt-2 flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        void onPatch({ playbookId: tagSuggestion.playbookId });
+                        setTagSuggestion(null);
+                      }}
+                    >
+                      Terapkan
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setTagSuggestion(null)}
+                    >
+                      Abaikan
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-muted-foreground">{tagSuggestion.reasoning}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 h-7 text-xs"
+                    onClick={() => setTagSuggestion(null)}
+                  >
+                    Tutup
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
         </div>
+        )}
 
         <div>
           <label className="text-xs text-muted-foreground">Tags (comma-separated)</label>

@@ -1,8 +1,7 @@
-export const PLANS = ["starter", "pro", "elite"] as const;
-export type Plan = (typeof PLANS)[number];
+import { isPlan, PLANS, type Plan } from "./plan";
 
-export const isPlan = (value: unknown): value is Plan =>
-  value === "starter" || value === "pro" || value === "elite";
+export { isPlan, PLANS };
+export type { Plan };
 
 export interface AiAccessStatus {
   plan: Plan;

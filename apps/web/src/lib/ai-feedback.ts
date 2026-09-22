@@ -66,6 +66,13 @@ export function aiFeedback(message: string): AiFeedback {
       tone: "info",
       retry: true,
     };
+  if (/don't have any playbooks yet/i.test(message))
+    return {
+      title: "Create a playbook first",
+      description: "A playbook suggestion needs at least one playbook to match against.",
+      tone: "info",
+      action: { label: "Create a playbook", href: "/playbooks" },
+    };
   if (/journal is empty/i.test(message))
     return {
       title: "Add trades to get started",

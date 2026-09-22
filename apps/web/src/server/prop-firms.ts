@@ -4,6 +4,12 @@ import { requireValue, RequestError } from "./api";
 import { newId, nowIso } from "./ids";
 import { getTimeZone } from "./settings";
 import {
+  getPlan,
+  getPropAccountLimit,
+  propAccountLimitMessage,
+  PROP_FIRM_NOT_INCLUDED_MESSAGE,
+} from "./plan";
+import {
   currencyDigits,
   toMinor,
   expectedPayout,
@@ -240,15 +246,20 @@ export function mutateProp(body: Record<string, unknown>, userId: string) {
           linked.every((e) => e.occurredOn >= values.openedOn),
           "Opening date cannot be after this account's cash records.",
         );
-      } else
+      } else {
+        const plan = getPlan(userId);
+        const limit = getPropAccountLimit(plan);
+        const existing = db
+          .select({ n: count() })
+          .from(propAccounts)
+          .where(eq(propAccounts.userId, userId))
+          .get()!.n;
         requireValue(
-          db
-            .select({ n: count() })
-            .from(propAccounts)
-            .where(eq(propAccounts.userId, userId))
-            .get()!.n < 2000,
-          "Account limit reached (2,000).",
+          existing < limit,
+          plan === "starter" ? PROP_FIRM_NOT_INCLUDED_MESSAGE : propAccountLimitMessage(limit),
         );
+        requireValue(existing < 2000, "Account limit reached (2,000).");
+      }
       if (old && body.revision === 0 && same(old, values)) return { id };
       checkRevision(old, body.revision);
       const updated = {

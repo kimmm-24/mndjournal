@@ -1,12 +1,12 @@
 import { and, eq, sql } from "drizzle-orm";
-import { db, aiUsage, subscriptions } from "@/db";
+import { db, aiUsage } from "@/db";
 import {
-  isPlan,
   PLAN_NOT_INCLUDED_MESSAGE,
   quotaExceededMessage,
   type AiAccessStatus,
   type Plan,
 } from "@/lib/ai-quota";
+import { getPlan } from "./plan";
 
 const DEFAULT_PRO_QUOTA = 100;
 const DEFAULT_ELITE_QUOTA = 300;
@@ -14,16 +14,6 @@ const DEFAULT_ELITE_QUOTA = 300;
 const envQuota = (name: string, fallback: number): number => {
   const raw = Number(process.env[name]);
   return Number.isFinite(raw) && raw >= 0 ? raw : fallback;
-};
-
-/** No row = 'starter' — every existing account, including the legacy migrated one. */
-export const getPlan = (userId: string): Plan => {
-  const plan = db
-    .select({ plan: subscriptions.plan })
-    .from(subscriptions)
-    .where(eq(subscriptions.userId, userId))
-    .get()?.plan;
-  return isPlan(plan) ? plan : "starter";
 };
 
 export const getAiQuota = (plan: Plan): number => {

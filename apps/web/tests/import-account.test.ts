@@ -14,10 +14,15 @@ vi.mock("@/server/auth", () => ({
   auth: { api: { getSession: async () => ({ user: { id: "test-user" }, session: {} }) } },
 }));
 const { POST, GET } = await import("../src/app/api/accounts/route");
-const { db, executions, trades } = await import("../src/db");
+const { db, executions, trades, subscriptions } = await import("../src/db");
 const { insertExecutions } = await import("../src/server/executions");
 
 it("creates an import destination with the chosen currency/balance and accepts fills under its returned id", async () => {
+  // This test exercises account creation itself, not the plan gate on it.
+  db.insert(subscriptions)
+    .values({ userId: "test-user", plan: "pro", updatedAt: new Date().toISOString() })
+    .onConflictDoUpdate({ target: subscriptions.userId, set: { plan: "pro" } })
+    .run();
   const response = await POST(
     new Request("http://localhost/api/accounts", {
       method: "POST",

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { FILTER_KEYS } from "@luxalgo/journal-core";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   BarChart3,
   BookOpen,
@@ -13,6 +13,7 @@ import {
   Import,
   LayoutDashboard,
   ListOrdered,
+  LogOut,
   NotebookPen,
   Settings,
   ListChecks,
@@ -25,6 +26,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { authClient } from "@/lib/auth-client";
 import { LuxAlgoMark } from "@/components/luxalgo-mark";
 import { PrivacyToggle } from "./privacy";
 import { ThemeToggle } from "./theme";
@@ -98,8 +100,10 @@ function NavLink({
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const search = useSearchParams();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarReady, setSidebarReady] = useState(false);
   useEffect(() => setMenuOpen(false), [pathname]);
@@ -139,6 +143,16 @@ export function Shell({ children }: { children: React.ReactNode }) {
     window.addEventListener("keydown", shortcut);
     return () => window.removeEventListener("keydown", shortcut);
   }, []);
+  async function handleSignOut() {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await authClient.signOut();
+    } finally {
+      router.push("/login");
+      router.refresh();
+    }
+  }
   function toggleSidebar() {
     setSidebarCollapsed((collapsed) => {
       const next = !collapsed;
@@ -189,19 +203,30 @@ export function Shell({ children }: { children: React.ReactNode }) {
     </nav>
   );
   const footer = (
-    <div className="journal-sidebar-footer space-y-1 border-t p-3 text-xs text-muted-foreground">
-      <div>
-        Open source ·{" "}
-        <a
-          href="https://github.com/LuxAlgo/trade-journal"
-          className="underline underline-offset-2 hover:text-foreground"
-          target="_blank"
-          rel="noreferrer"
-        >
-          GitHub
-        </a>
+    <div className="journal-sidebar-footer border-t p-3">
+      <button
+        type="button"
+        onClick={handleSignOut}
+        disabled={signingOut}
+        className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground disabled:opacity-50"
+      >
+        <LogOut className="h-4 w-4" />
+        {signingOut ? "Signing out…" : "Sign out"}
+      </button>
+      <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+        <div>
+          Open source ·{" "}
+          <a
+            href="https://github.com/LuxAlgo/trade-journal"
+            className="underline underline-offset-2 hover:text-foreground"
+            target="_blank"
+            rel="noreferrer"
+          >
+            GitHub
+          </a>
+        </div>
+        <div>Not investment advice.</div>
       </div>
-      <div>Not investment advice.</div>
     </div>
   );
   return (

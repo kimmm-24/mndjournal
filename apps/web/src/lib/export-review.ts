@@ -29,7 +29,7 @@ export async function buildReviewPdf(doc: ReviewDocument, fontBytes: ArrayBuffer
       `PDF font does not support these characters: ${missing.slice(0, 8).join(" ")}. Remove them for this export, or export a PNG review.`,
     );
   pdf.setTitle(doc.title);
-  pdf.setCreator("Trade Journal");
+  pdf.setCreator("mndjournal");
   let page = pdf.addPage([595, 842]),
     y = 786;
   const addPage = () => {
@@ -68,7 +68,7 @@ export async function buildReviewPdf(doc: ReviewDocument, fontBytes: ArrayBuffer
   }
   const pages = pdf.getPages();
   pages.forEach((p, i) =>
-    p.drawText(`Trade Journal  |  ${i + 1} / ${pages.length}`, {
+    p.drawText(`mndjournal  |  ${i + 1} / ${pages.length}`, {
       x: 48,
       y: 30,
       size: 8,

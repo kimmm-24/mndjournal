@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { LuxAlgoMark } from "@/components/luxalgo-mark";
 import { GoogleMark } from "@/components/google-mark";
 import { authClient } from "@/lib/auth-client";
 
@@ -57,7 +57,13 @@ export default function SignupPage() {
         <CardContent className="pt-6">
           <form onSubmit={submit} className="space-y-3">
             <div className="text-center">
-              <LuxAlgoMark className="mx-auto mb-2 h-6 w-7" />
+              <Image
+                src="/logo.png"
+                alt="mndjournal"
+                width={262}
+                height={238}
+                className="mx-auto mb-2 h-7 w-auto"
+              />
               <h1 className="text-sm font-semibold">Create your account</h1>
             </div>
             <Input

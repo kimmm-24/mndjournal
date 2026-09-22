@@ -22,18 +22,18 @@ export const readVizTokens = (): VizTokens => {
   const style = getComputedStyle(document.documentElement);
   const v = (name: string, fallback: string) => style.getPropertyValue(name).trim() || fallback;
   return {
-    surface: v("--viz-surface", "#1a1a19"),
+    surface: v("--viz-surface", "#1c2230"),
     inkMuted: v("--ink-muted", "#898781"),
     gridline: v("--gridline", "#2c2c2a"),
     baseline: v("--baseline", "#30303a"),
-    brand: v("--brand", "#1197e2"),
-    profit: v("--profit", "#0ca30c"),
-    profitFill: v("--profit-fill", "#0ca30c"),
-    loss: v("--loss", "#d03b3b"),
+    brand: v("--brand", "#4d8dff"),
+    profit: v("--profit", "#4d8dff"),
+    profitFill: v("--profit-fill", "#4d8dff"),
+    loss: v("--loss", "#e05555"),
     series: [1, 2, 3, 4, 5, 6, 7, 8].map((i) => v(`--series-${i}`, "#3987e5")),
     foreground: v("--foreground", "#f4f4f2"),
-    card: v("--card", "#1a1a19"),
-    border: v("--border", "#2c2c2a"),
+    card: v("--card", "#1c2230"),
+    border: v("--border", "#2a3245"),
   };
 };
 

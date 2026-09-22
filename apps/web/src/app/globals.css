@@ -31,7 +31,7 @@
   --ring: #0b7cbd;
   --radius: 0.5rem;
 
-  /* Brand accent (LuxAlgo blue): never the sole carrier of information. */
+  /* Brand accent: never the sole carrier of information. */
   --brand: #0b7cbd;
 
   /* viz tokens (validated: see docs/design.md) */
@@ -55,9 +55,9 @@
 
 .dark {
   color-scheme: dark;
-  --background: #08080a;
+  --background: #141820;
   --foreground: #f4f4f4;
-  --card: #101013;
+  --card: #1c2230;
   --card-foreground: #f4f4f4;
   --popover: #131317;
   --popover-foreground: #f4f4f4;
@@ -71,19 +71,19 @@
   --accent-foreground: #f4f4f4;
   --destructive: #d03b3b;
   --destructive-foreground: #fafafa;
-  --border: #222228;
+  --border: #2a3245;
   --input: #26262c;
-  --ring: #1197e2;
+  --ring: #4d8dff;
 
-  --brand: #1197e2;
+  --brand: #4d8dff;
 
-  --viz-surface: #101013;
+  --viz-surface: #1c2230;
   --ink-muted: #8b8b95;
   --gridline: #1e1e24;
   --baseline: #30303a;
-  --profit: #0ca30c;
-  --profit-fill: #0ca30c;
-  --loss: #d03b3b;
+  --profit: #4d8dff;
+  --profit-fill: #4d8dff;
+  --loss: #e05555;
   --neutral-mid: #383835;
   --series-1: #3987e5;
   --series-2: #d95926;

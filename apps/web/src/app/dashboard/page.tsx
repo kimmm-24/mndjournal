@@ -355,16 +355,7 @@ function DashboardContent({
                 <CardContent className="dashboard-visual-card-content">
                   {edgeScore.score === null ? (
                     <p className="py-8 text-center text-sm text-muted-foreground">
-                      Needs 5+ closed trades. The formula is open —{" "}
-                      <a
-                        className="underline"
-                        href="https://github.com/LuxAlgo/trade-journal/blob/main/docs/edge-score.md"
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        read it
-                      </a>
-                      .
+                      Needs 5+ closed trades.
                     </p>
                   ) : (
                     <EdgeRadar components={edgeScore.components} height="100%" />

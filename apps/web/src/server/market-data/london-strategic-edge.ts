@@ -14,7 +14,7 @@ async function read(path: string, key: string, signal?: AbortSignal): Promise<un
     `${BASE}${path}`,
     {
       "x-api-key": key,
-      "User-Agent": "LuxAlgo-Trade-Journal/market-data",
+      "User-Agent": "mndjournal/market-data",
     },
     signal,
     { timeoutMs: 60_000, cache: path !== "/usage" },

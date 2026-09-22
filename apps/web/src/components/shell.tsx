@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { FILTER_KEYS } from "@luxalgo/journal-core";
@@ -27,7 +28,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { authClient } from "@/lib/auth-client";
-import { LuxAlgoMark } from "@/components/luxalgo-mark";
 import { PrivacyToggle } from "./privacy";
 import { ThemeToggle } from "./theme";
 import { PageTransition } from "./page-transition";
@@ -214,17 +214,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
         {signingOut ? "Signing out…" : "Sign out"}
       </button>
       <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-        <div>
-          Open source ·{" "}
-          <a
-            href="https://github.com/LuxAlgo/trade-journal"
-            className="underline underline-offset-2 hover:text-foreground"
-            target="_blank"
-            rel="noreferrer"
-          >
-            GitHub
-          </a>
-        </div>
         <div>Not investment advice.</div>
       </div>
     </div>
@@ -250,9 +239,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
               aria-describedby={undefined}
             >
               <div className="flex h-14 shrink-0 items-center gap-2.5 border-b px-4">
-                <LuxAlgoMark className="h-[18px] w-5" />
+                <Image src="/logo.png" alt="mndjournal" width={262} height={238} className="h-[18px] w-auto" />
                 <DialogPrimitive.Title className="text-sm font-semibold">
-                  Trade Journal
+                  mndjournal
                 </DialogPrimitive.Title>
                 <DialogPrimitive.Close asChild>
                   <Button
@@ -277,8 +266,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
           href="/dashboard"
           className="mr-auto flex min-w-0 items-center gap-2 text-sm font-semibold tracking-tight"
         >
-          <LuxAlgoMark className="hidden h-4 w-[18px] shrink-0 min-[380px]:block" />
-          <span className="truncate">Trade Journal</span>
+          <Image
+            src="/logo.png"
+            alt="mndjournal"
+            width={262}
+            height={238}
+            className="hidden h-4 w-auto shrink-0 min-[380px]:block"
+          />
+          <span className="truncate">mndjournal</span>
         </Link>
         <PrivacyToggle compact />
         <ThemeToggle iconOnly />
@@ -293,9 +288,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
             href="/dashboard"
             className="journal-sidebar-home flex h-full min-w-0 items-center gap-2.5"
           >
-            <LuxAlgoMark className="h-[18px] w-5 shrink-0" />
+            <Image
+              src="/logo.png"
+              alt="mndjournal"
+              width={262}
+              height={238}
+              className="h-[18px] w-auto shrink-0"
+            />
             <span className="journal-sidebar-brand-label text-sm font-semibold tracking-tight">
-              Trade Journal
+              mndjournal
             </span>
           </Link>
           <Button

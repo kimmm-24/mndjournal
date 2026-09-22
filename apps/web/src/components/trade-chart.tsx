@@ -109,8 +109,8 @@ function PriceChart({
       const durationMs = Math.max(closeMs - openMs, 60_000);
       const pad = Math.max(durationMs * 0.35, 15 * 60_000);
 
-      let profitColor = dark ? "#0ca30c" : "#006300";
-      const lossColor = "#d03b3b";
+      let profitColor = dark ? "#4d8dff" : "#006300";
+      let lossColor = dark ? "#e05555" : "#d03b3b";
       let entryColor = trade.direction === "long" ? profitColor : lossColor;
 
       // Engine-free trade painting: a per-mount native indicator that emits
@@ -225,7 +225,8 @@ function PriceChart({
         const nextDark = document.documentElement.classList.contains("dark");
         if (dark === nextDark) return;
         dark = nextDark;
-        profitColor = dark ? "#0ca30c" : "#006300";
+        profitColor = dark ? "#4d8dff" : "#006300";
+        lossColor = dark ? "#e05555" : "#d03b3b";
         entryColor = trade.direction === "long" ? profitColor : lossColor;
         chart.setTheme(dark ? "dark" : "light");
         // Repaint annotations without recreating the price chart or fetching candles.

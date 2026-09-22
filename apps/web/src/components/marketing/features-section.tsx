@@ -1,20 +1,42 @@
-import { NotebookPen, LayoutDashboard, Sparkles } from "lucide-react";
+import {
+  NotebookPen,
+  LayoutDashboard,
+  BookOpen,
+  PlayCircle,
+  Sparkles,
+  Landmark,
+} from "lucide-react";
 
 const FEATURES = [
   {
     icon: NotebookPen,
-    title: "Journal Trading Manual",
+    title: "Journal Trading",
     body: "Catat setiap trade secara manual dengan tagging setup, emosi, dan kondisi market. Bangun riwayat lengkap dari setiap keputusan trading Anda.",
   },
   {
     icon: LayoutDashboard,
-    title: "Dashboard & Analytics Lengkap",
-    body: "Pantau win rate, R-multiple, profit factor, dan kalender performa harian dalam satu dashboard yang mudah dibaca.",
+    title: "Analytics & Dashboard",
+    body: "Win rate, R-multiple, profit factor, equity curve, dan drawdown — plus reporting 19 dimensi untuk breakdown dan compare groups.",
+  },
+  {
+    icon: BookOpen,
+    title: "Playbooks & Rule Adherence",
+    body: "Definisikan strategi Anda sebagai playbook dengan checklist rules, lalu lacak seberapa disiplin Anda mengikutinya di setiap trade.",
+  },
+  {
+    icon: PlayCircle,
+    title: "Trade Replay",
+    body: "Putar ulang price action candlestick di sekitar entry dan exit setiap trade — scrubber interaktif dengan kecepatan 1x/2x/4x.",
   },
   {
     icon: Sparkles,
     title: "AI Reflection",
-    body: "Dapatkan review otomatis dari AI setelah setiap sesi trading — temukan pola kesalahan dan area yang perlu diperbaiki tanpa analisa manual.",
+    body: "Recap harian, critique per-trade, tanya jawab dengan jurnal Anda (ask your journal), dan AI Auto-Tagger yang menyarankan playbook otomatis.",
+  },
+  {
+    icon: Landmark,
+    title: "Prop-Firm Tracking",
+    body: "Lacak akun evaluation dan funded Anda secara terpisah dari P&L journal — cash flow, fee, split, dan payout dalam satu dashboard.",
   },
 ];
 
@@ -24,7 +46,7 @@ export function FeaturesSection() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            Semua yang Anda Butuhkan untuk Trading yang Lebih Disiplin
+            Semua yang Anda butuhkan, satu tempat
           </h2>
           <p className="mt-3 text-[#9aa4b8]">
             Dirancang untuk trader di semua instrumen — saham, forex, futures, crypto, gold, dan
@@ -32,7 +54,7 @@ export function FeaturesSection() {
           </p>
         </div>
 
-        <div className="mt-14 grid gap-5 sm:grid-cols-3">
+        <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((feature) => (
             <div
               key={feature.title}

@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
-import { PricingSection } from "@/components/marketing/pricing-section";
+import { PricingPageContent } from "@/components/marketing/pricing-page-content";
 import { FinalCta } from "@/components/marketing/final-cta";
 
 export const metadata: Metadata = {
   title: "Harga — mndjournal",
-  description: "Paket harga mndjournal: Starter, Pro, dan Elite / Prop Trader.",
+  description:
+    "Perbandingan lengkap paket Starter, Pro, dan Elite — akun trading, playbooks, trade replay, AI reflection, dan prop-firm tracking.",
 };
 
 export default function PricingPage() {
@@ -14,8 +15,7 @@ export default function PricingPage() {
     <div className="bg-[#141820]">
       <MarketingNav />
       <main>
-        <div className="pt-6" />
-        <PricingSection />
+        <PricingPageContent />
         <FinalCta />
       </main>
       <MarketingFooter />

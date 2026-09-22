@@ -4,9 +4,12 @@ import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Hero } from "@/components/marketing/hero";
 import { DashboardMockup } from "@/components/marketing/dashboard-mockup";
 import { FeaturesSection } from "@/components/marketing/features-section";
-import { HowItWorks } from "@/components/marketing/how-it-works";
-import { JournalMockup } from "@/components/marketing/journal-mockup";
-import { PricingSection } from "@/components/marketing/pricing-section";
+import { AutomatedJournaling } from "@/components/marketing/automated-journaling";
+import { AnalyticsSpotlight } from "@/components/marketing/analytics-spotlight";
+import { PlaybooksSpotlight } from "@/components/marketing/playbooks-spotlight";
+import { ReplaySpotlight } from "@/components/marketing/replay-spotlight";
+import { AiSpotlight } from "@/components/marketing/ai-spotlight";
+import { PricingTeaser } from "@/components/marketing/pricing-teaser";
 import { FinalCta } from "@/components/marketing/final-cta";
 
 export const metadata: Metadata = {
@@ -23,11 +26,12 @@ export default function LandingPage() {
         <Hero />
         <DashboardMockup />
         <FeaturesSection />
-        <HowItWorks />
-        <div className="bg-[#171c26] pb-20 sm:pb-24">
-          <JournalMockup />
-        </div>
-        <PricingSection />
+        <AutomatedJournaling />
+        <AnalyticsSpotlight />
+        <PlaybooksSpotlight />
+        <ReplaySpotlight />
+        <AiSpotlight />
+        <PricingTeaser />
         <FinalCta />
       </main>
       <MarketingFooter />

@@ -1,11 +1,16 @@
 import Link from "next/link";
 import Image from "next/image";
 
-const COLUMN_LINKS = [
+const PRODUK_LINKS = [
   { href: "/#fitur", label: "Fitur" },
-  { href: "/#cara-kerja", label: "Cara Kerja" },
   { href: "/pricing", label: "Harga" },
-  { href: "/contact", label: "Kontak" },
+  { href: "/login", label: "Masuk" },
+  { href: "/signup", label: "Daftar Gratis" },
+];
+
+const LEGAL_LINKS = [
+  { href: "/terms", label: "Syarat & Ketentuan" },
+  { href: "/privacy", label: "Kebijakan Privasi" },
 ];
 
 export function MarketingFooter() {
@@ -13,7 +18,7 @@ export function MarketingFooter() {
   return (
     <footer className="border-t border-[#2a3245] bg-[#141820]">
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-        <div className="grid gap-10 sm:grid-cols-[1.4fr_1fr_1fr]">
+        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div>
             <Link href="/" className="flex items-center gap-2.5">
               <Image src="/logo.png" alt="mndjournal" width={262} height={238} className="h-8 w-auto" />
@@ -27,10 +32,28 @@ export function MarketingFooter() {
 
           <div>
             <div className="text-xs font-semibold uppercase tracking-wide text-[#7d879e]">
-              Navigasi
+              Produk
             </div>
             <ul className="mt-3 space-y-2.5">
-              {COLUMN_LINKS.map((link) => (
+              {PRODUK_LINKS.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className="text-sm text-[#9aa4b8] transition-colors hover:text-white"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-[#7d879e]">
+              Legal
+            </div>
+            <ul className="mt-3 space-y-2.5">
+              {LEGAL_LINKS.map((link) => (
                 <li key={link.href}>
                   <Link
                     href={link.href}
@@ -50,13 +73,8 @@ export function MarketingFooter() {
             <ul className="mt-3 space-y-2.5 text-sm text-[#9aa4b8]">
               <li>halo@mndjournal.com</li>
               <li>
-                <Link href="/terms" className="transition-colors hover:text-white">
-                  Syarat & Ketentuan
-                </Link>
-              </li>
-              <li>
-                <Link href="/privacy" className="transition-colors hover:text-white">
-                  Kebijakan Privasi
+                <Link href="/contact" className="transition-colors hover:text-white">
+                  Hubungi Kami
                 </Link>
               </li>
             </ul>

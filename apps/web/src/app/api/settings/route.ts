@@ -103,7 +103,8 @@ export const PATCH = handler(async (request: Request) => {
       if (key !== undefined) setAiKey(id, key, userId);
     }
     if (body.aiProvider !== undefined) setSetting("aiProvider", body.aiProvider, userId);
-    if (body.aiModel !== undefined)
+    // Ignored with a server key: the model is fixed then (getAiModel).
+    if (body.aiModel !== undefined && !aiKeyEnvironment(provider))
       setSetting(aiModelSetting(provider), body.aiModel.trim(), userId);
   });
   return ok({ saved: true });

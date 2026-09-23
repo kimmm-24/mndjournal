@@ -2,7 +2,7 @@ export const AI_PROVIDERS = ["anthropic", "openai"] as const;
 export type AiProvider = (typeof AI_PROVIDERS)[number];
 
 export const AI_DEFAULT_MODELS: Record<AiProvider, string> = {
-  anthropic: "claude-opus-5",
+  anthropic: "claude-haiku-4-5-20251001",
   openai: "gpt-4.1-mini",
 };
 

@@ -143,6 +143,7 @@ export const settings = defineMessages({
       model: "Model ID",
       modelHelp:
         "Use a text model available to your provider account. Each provider keeps its own model and key.",
+      modelFixed: "The model is set by the server.",
       apiKey: (provider: string) => `${provider} API key`,
       keyConfigured: "Key configured",
       fromEnvironment: (variable: string) =>
@@ -301,6 +302,7 @@ export const settings = defineMessages({
       model: "ID model",
       modelHelp:
         "Gunakan model teks yang tersedia di akun provider Anda. Setiap provider menyimpan model dan API key-nya sendiri.",
+      modelFixed: "Model diatur oleh server.",
       apiKey: (provider: string) => `API key ${provider}`,
       keyConfigured: "API key terpasang",
       fromEnvironment: (variable: string) =>

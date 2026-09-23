@@ -2,6 +2,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+const { AI_DEFAULT_MODELS } = await import("../src/lib/ai-settings");
 
 const originalDir = process.env.JOURNAL_DATA_DIR;
 const scratch = mkdtempSync(join(tmpdir(), "journal-ai-test-"));
@@ -14,7 +15,9 @@ process.env.JOURNAL_DATA_DIR = scratch;
 let sessionUser: { id: string } | null = { id: "test-user" };
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 vi.mock("@/server/auth", () => ({
-  auth: { api: { getSession: async () => (sessionUser ? { user: sessionUser, session: {} } : null) } },
+  auth: {
+    api: { getSession: async () => (sessionUser ? { user: sessionUser, session: {} } : null) },
+  },
 }));
 const TEST_USER = "test-user";
 const { db, settings, subscriptions, aiUsage } = await import("../src/db");
@@ -83,7 +86,7 @@ describe("AI provider settings", () => {
     expect(await state()).toMatchObject({
       aiProvider: "anthropic",
       aiConfigured: false,
-      aiModel: "claude-opus-5",
+      aiModel: "claude-haiku-4-5-20251001",
     });
     await expect(runAi("Fixture prompt")).rejects.toThrow("AI is not configured");
     expect(fetch).not.toHaveBeenCalled();
@@ -156,14 +159,21 @@ describe("AI provider settings", () => {
   });
 
   it.each(["openai", "anthropic"] as const)(
-    "honors %s environment precedence and blocks misleading key edits",
+    "honors %s environment precedence, blocks misleading key edits, and fixes the model",
     async (provider) => {
-      await save({ [`${provider}Key`]: "fixture-saved" });
+      await save({
+        [`${provider}Key`]: "fixture-saved",
+        aiProvider: provider,
+        aiModel: "own-model",
+      });
+      expect(getAiModel(provider)).toBe("own-model");
       vi.stubEnv(provider === "openai" ? "OPENAI_API_KEY" : "ANTHROPIC_API_KEY", "fixture-env");
       expect(getAiKey(provider)).toBe("fixture-env");
       for (const key of [null, "fixture-replacement"])
         expect((await save({ [`${provider}Key`]: key })).status).toBe(400);
       expect((await save({ aiProvider: provider, aiModel: "custom-text-model" })).status).toBe(200);
+      // The server's key means the server pays: saved choices don't apply.
+      expect(getAiModel(provider)).toBe(AI_DEFAULT_MODELS[provider]);
     },
   );
 

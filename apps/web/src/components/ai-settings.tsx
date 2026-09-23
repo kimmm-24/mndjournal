@@ -105,7 +105,7 @@ export function AiSettings() {
             <Input
               id="ai-model"
               value={model}
-              disabled={disabled}
+              disabled={disabled || environment}
               placeholder={AI_DEFAULT_MODELS[provider]}
               onChange={(event) => {
                 setModel(event.target.value);
@@ -114,7 +114,7 @@ export function AiSettings() {
             />
           </div>
         </div>
-        <p className="text-xs text-muted-foreground">{t.modelHelp}</p>
+        <p className="text-xs text-muted-foreground">{environment ? t.modelFixed : t.modelHelp}</p>
         <div className="space-y-1">
           <Label htmlFor="ai-api-key">{t.apiKey(name)}</Label>
           <Input

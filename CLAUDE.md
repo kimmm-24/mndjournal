@@ -173,6 +173,10 @@ bank transfer and e-wallets, which can't be charged recurringly.
   (public, signature-checked). `/api/billing/verify` settles an order from the browser — the only
   path that works on localhost, where Midtrans can't reach the webhook. Prices come from
   `pricing-data.ts`. Refunds mark the payment `refunded` but don't shorten access (manual decision).
+- **AI model** — the default is the cheapest model (`AI_DEFAULT_MODELS` in `lib/ai-settings.ts`,
+  Claude Haiku 4.5). When the server's key is used (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY`), we
+  pay, so the model is fixed to the default and users can't pick another (`getAiModel`). Users
+  with their own key still choose.
 - **`server/ai-quota.ts`** — AI usage quota, tracked in the `ai_usage` table per user per calendar
   month. Starter gets 0 (no AI at all). Quotas are env-configurable: `TRIAL_AI_QUOTA` (default 10),
   `PRO_AI_QUOTA` (default 100), `ELITE_AI_QUOTA` (default 300).

@@ -102,8 +102,13 @@ export const getAiProvider = (userId?: string): AiProvider => {
 export const aiModelSetting = (provider: AiProvider): string =>
   provider === "anthropic" ? "aiModel" : "openaiModel";
 
+/**
+ * With the server's own key (environment), usage is ours to pay for, so the
+ * model is fixed to the default; users only pick a model for their own key.
+ */
 export const getAiModel = (provider: AiProvider, userId?: string): string =>
-  getSetting(aiModelSetting(provider), userId)?.trim() || AI_DEFAULT_MODELS[provider];
+  (!aiKeyEnvironment(provider) && getSetting(aiModelSetting(provider), userId)?.trim()) ||
+  AI_DEFAULT_MODELS[provider];
 
 export const getAiSettings = (userId?: string): AiSettingsPayload => {
   const aiProvider = getAiProvider(userId);

@@ -1,7 +1,13 @@
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { accounts, db } from "@/db";
 import { getEntitlement, syncImportAllowed } from "./plan";
-import { isMetaTrader, recoverInterruptedSyncs, runAccountSync } from "./sync";
+import {
+  isMetaTrader,
+  metatraderSyncBlocked,
+  recoverInterruptedSyncs,
+  runAccountSync,
+} from "./sync";
+import { isMetaTraderSyncDay, METATRADER_SYNC_GAP_HOURS } from "@/lib/metatrader-sync";
 
 /**
  * Background auto-sync for broker-connected accounts with "Auto-sync" on.
@@ -17,9 +23,13 @@ const hoursFromEnv = (name: string, fallback: number) => {
   const value = Number(process.env[name]);
   return (Number.isFinite(value) && value > 0 ? value : fallback) * 60 * 60 * 1000;
 };
+// MetaTrader never goes below METATRADER_SYNC_GAP_HOURS: the add-on is priced on it.
 export const syncIntervalMs = (broker: string) =>
   isMetaTrader(broker)
-    ? hoursFromEnv("METATRADER_SYNC_INTERVAL_HOURS", 6)
+    ? Math.max(
+        METATRADER_SYNC_GAP_HOURS * 60 * 60 * 1000,
+        hoursFromEnv("METATRADER_SYNC_INTERVAL_HOURS", METATRADER_SYNC_GAP_HOURS),
+      )
     : hoursFromEnv("AUTO_SYNC_INTERVAL_HOURS", 1);
 
 const TICK_MS = 10 * 60 * 1000;
@@ -28,6 +38,7 @@ const FIRST_TICK_MS = 60 * 1000;
 /**
  * Accounts due now. Users whose plan lapsed (read-only) or no longer
  * includes broker sync are skipped — their data stays, the syncing stops.
+ * MetaTrader accounts also need enough paid add-on slots.
  */
 export const dueAccounts = (now = new Date()) =>
   db
@@ -46,6 +57,9 @@ export const dueAccounts = (now = new Date()) =>
     .filter((account) => {
       const last = account.syncAttemptedAt ?? account.lastSyncAt;
       if (last && now.getTime() - Date.parse(last) < syncIntervalMs(account.broker)) return false;
+      if (isMetaTrader(account.broker)) {
+        return isMetaTraderSyncDay(now) && metatraderSyncBlocked(account.userId, now) === null;
+      }
       const entitlement = getEntitlement(account.userId, now);
       return !entitlement.readOnly && syncImportAllowed(entitlement.plan);
     });

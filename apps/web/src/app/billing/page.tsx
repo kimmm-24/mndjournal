@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Check } from "lucide-react";
+import { Check, Minus, Plus } from "lucide-react";
 import { FilterBar } from "@/components/filter-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,11 @@ import {
 } from "@/components/ui/table";
 import {
   ENTITLEMENT_CHANGED_EVENT,
+  MAX_METATRADER_SLOTS,
+  metatraderAddonAllowed,
+  metatraderAddonPrice,
+  METATRADER_ADDON_MONTHLY_PRICE,
+  proratedAddonPrice,
   type BillingPayment,
   TRIAL_DAYS,
   type BillingInterval,
@@ -30,6 +35,7 @@ import { useI18n, useT } from "@/components/i18n";
 
 interface BillingState {
   entitlement: Entitlement;
+  metatraderConnected: number;
   payments: BillingPayment[];
   configured: boolean;
   snap: { clientKey: string; production: boolean; scriptUrl: string };
@@ -110,6 +116,10 @@ function Billing() {
   const search = useSearchParams();
   const [interval, setBillingInterval] = useState<BillingInterval>("month");
   const [busy, setBusy] = useState<string | null>(null);
+  // MetaTrader slots the next plan payment includes; starts at what's in use.
+  const [slots, setSlots] = useState<number | null>(null);
+  const minSlots = data?.metatraderConnected ?? 0;
+  const nextSlots = slots ?? Math.max(data?.entitlement.metatraderSlots ?? 0, minSlots);
   const [notice, setNotice] = useState<{ tone: "ok" | "error" | "info"; text: string } | null>(
     null,
   );
@@ -175,13 +185,19 @@ function Billing() {
     snap.pay(token, { onSuccess: settle, onPending: settle, onError: settle, onClose: settle });
   };
 
-  const checkout = async (plan: Plan) => {
+  const checkout = async (plan: Plan | "addon") => {
     setBusy(plan);
     setNotice(null);
     try {
       const { orderId, token } = await postJson<{ orderId: string; token: string }>(
         "/api/billing/checkout",
-        { plan, interval },
+        plan === "addon"
+          ? { addon: "metatrader", metatraderSlots: 1 }
+          : {
+              plan,
+              interval,
+              metatraderSlots: metatraderAddonAllowed(plan) ? nextSlots : 0,
+            },
       );
       await openSnap(token, orderId);
     } catch (cause) {
@@ -238,6 +254,69 @@ function Billing() {
           </Card>
         )}
 
+        {entitlement && data && (
+          <Card>
+            <CardHeader>
+              <CardTitle>{t.addon.title}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <p className="text-muted-foreground">
+                {t.addon.body(formatRupiah(METATRADER_ADDON_MONTHLY_PRICE))}
+              </p>
+              <p>{t.addon.status(entitlement.metatraderSlots, data.metatraderConnected)}</p>
+              {entitlement.status === "active" &&
+                entitlement.endsAt &&
+                metatraderAddonAllowed(entitlement.plan) &&
+                entitlement.metatraderSlots < MAX_METATRADER_SLOTS && (
+                  <Button
+                    variant="outline"
+                    disabled={!data.configured || busy !== null}
+                    onClick={() => void checkout("addon")}
+                  >
+                    {busy === "addon"
+                      ? t.openingCheckout
+                      : t.addon.addNow(
+                          formatRupiah(proratedAddonPrice(entitlement.endsAt)),
+                          date(entitlement.endsAt),
+                        )}
+                  </Button>
+                )}
+              {entitlement.status === "trial" && (
+                <p className="text-xs text-muted-foreground">{t.addon.trialHint}</p>
+              )}
+              <div className="flex flex-wrap items-center gap-2">
+                <span>{t.addon.nextPeriod}</span>
+                <div className="inline-flex items-center rounded-md border">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8"
+                    aria-label={t.addon.decrease}
+                    disabled={nextSlots <= minSlots}
+                    onClick={() => setSlots(nextSlots - 1)}
+                  >
+                    <Minus className="h-3.5 w-3.5" />
+                  </Button>
+                  <span className="w-8 text-center tabular-nums" aria-live="polite">
+                    {nextSlots}
+                  </span>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8"
+                    aria-label={t.addon.increase}
+                    disabled={nextSlots >= MAX_METATRADER_SLOTS}
+                    onClick={() => setSlots(nextSlots + 1)}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">{t.addon.hint}</p>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-semibold">{running ? t.extendOrChange : t.choosePlan}</h2>
           <div
@@ -289,6 +368,14 @@ function Billing() {
                     <span className="text-sm text-muted-foreground">
                       {interval === "month" ? t.perMonth : t.perYear}
                     </span>
+                    {metatraderAddonAllowed(tier.id) && nextSlots > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {t.addon.withSlots(
+                          nextSlots,
+                          formatRupiah(nextSlots * metatraderAddonPrice(interval)),
+                        )}
+                      </p>
+                    )}
                   </div>
                   <ul className="space-y-1 text-sm">
                     {tier.bullets.map((bullet) => (
@@ -342,8 +429,16 @@ function Billing() {
                     <TableRow key={payment.orderId}>
                       <TableCell className="whitespace-nowrap">{date(payment.createdAt)}</TableCell>
                       <TableCell className="whitespace-nowrap">
-                        {planName(payment.plan)} ·{" "}
-                        {payment.interval === "month" ? t.oneMonth : t.oneYear}
+                        {payment.kind === "addon" ? (
+                          t.addon.history(payment.metatraderSlots)
+                        ) : (
+                          <>
+                            {planName(payment.plan)} ·{" "}
+                            {payment.interval === "month" ? t.oneMonth : t.oneYear}
+                            {payment.metatraderSlots > 0 &&
+                              t.addon.historySuffix(payment.metatraderSlots)}
+                          </>
+                        )}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
                         {formatRupiah(payment.amount)}

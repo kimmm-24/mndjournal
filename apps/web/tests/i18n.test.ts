@@ -2,9 +2,14 @@ import { describe, expect, it } from "vitest";
 import { localeFromCookie, messagesFor, type Namespace } from "../src/lib/i18n";
 import { localizeServerError } from "../src/lib/i18n/server-errors";
 import { aiFeedback } from "../src/lib/ai-feedback";
-import { accountLimitMessage, READ_ONLY_MESSAGE } from "../src/lib/plan";
+import { accountLimitMessage, metatraderSlotsMessage, READ_ONLY_MESSAGE } from "../src/lib/plan";
 import { quotaExceededMessage } from "../src/lib/ai-quota";
 import * as namespaces from "../src/lib/i18n/messages/all";
+import {
+  connectLimitMessage,
+  METATRADER_WEEKEND_MESSAGE,
+  syncGapMessage,
+} from "../src/lib/metatrader-sync";
 
 /** Shape of a message tree: nested keys, with functions and arrays reduced to their kind. */
 const shape = (value: unknown): unknown => {
@@ -55,6 +60,12 @@ describe("server error translation", () => {
       ),
     ).toBe("Kuota AI bulan ini sudah habis (100/100). Kuota direset pada 2026-10-01.");
     expect(localizeServerError("Row 4: Choose a CSV file.", "id")).toBe("Baris 4: Pilih file CSV.");
+    // MetaTrader add-on and manual-sync limits.
+    expect(localizeServerError(metatraderSlotsMessage(0), "id")).toContain("add-on");
+    expect(localizeServerError(metatraderSlotsMessage(2), "id")).toContain("mencakup 2 akun");
+    expect(localizeServerError(syncGapMessage(5), "id")).toContain("dalam 5 jam");
+    expect(localizeServerError(connectLimitMessage(2), "id")).toContain("2 akun MetaTrader baru");
+    expect(localizeServerError(METATRADER_WEEKEND_MESSAGE, "id")).toContain("Senin–Jumat");
   });
 
   it("leaves English alone and passes unknown text through unchanged", () => {

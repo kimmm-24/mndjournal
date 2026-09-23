@@ -136,6 +136,17 @@ const createDb = () => {
   if (!subscriptionColumns.some((column) => column.name === "ends_at")) {
     sqlite.exec("ALTER TABLE subscriptions ADD COLUMN ends_at TEXT");
   }
+  // MetaTrader add-on slots.
+  if (!subscriptionColumns.some((column) => column.name === "metatrader_slots")) {
+    sqlite.exec("ALTER TABLE subscriptions ADD COLUMN metatrader_slots INTEGER NOT NULL DEFAULT 0");
+  }
+  const paymentColumns = sqlite.pragma("table_info(payments)") as { name: string }[];
+  if (!paymentColumns.some((column) => column.name === "kind")) {
+    sqlite.exec("ALTER TABLE payments ADD COLUMN kind TEXT NOT NULL DEFAULT 'plan'");
+  }
+  if (!paymentColumns.some((column) => column.name === "metatrader_slots")) {
+    sqlite.exec("ALTER TABLE payments ADD COLUMN metatrader_slots INTEGER NOT NULL DEFAULT 0");
+  }
   // Materialize CSV bounds once so connection and range lookups never scan candle JSON.
   const csvColumns = sqlite.pragma("table_info(market_csv_datasets)") as { name: string }[];
   sqlite.transaction(() => {

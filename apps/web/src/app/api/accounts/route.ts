@@ -4,11 +4,22 @@ import { bad, currentUserId, handler, ok } from "@/server/api";
 import { encryptJson } from "@/server/crypto";
 import { newId, nowIso } from "@/server/ids";
 import { connectMetaTrader } from "@/server/metatrader";
-import { isMetaTrader, startAccountSync, syncAccount } from "@/server/sync";
+import {
+  countMetaTraderAccounts,
+  isMetaTrader,
+  recentMetaTraderConnects,
+  recordMetaTraderConnect,
+  startAccountSync,
+  syncAccount,
+} from "@/server/sync";
+import { connectLimitMessage, METATRADER_CONNECTS_PER_SLOT } from "@/lib/metatrader-sync";
 import {
   accountLimitMessage,
   getAccountLimit,
-  getPlan,
+  getEntitlement,
+  METATRADER_ADDON_PLAN_MESSAGE,
+  metatraderAddonAllowed,
+  metatraderSlotsMessage,
   SYNC_IMPORT_NOT_INCLUDED_MESSAGE,
 } from "@/server/plan";
 
@@ -63,13 +74,17 @@ export const POST = handler(async (request: Request) => {
     return bad("sync accounts need a broker and credentials");
   }
 
-  const plan = getPlan(userId);
+  const entitlement = getEntitlement(userId);
+  const { plan } = entitlement;
   if (body.kind !== "manual" && plan === "starter") {
     return bad(SYNC_IMPORT_NOT_INCLUDED_MESSAGE, 403);
   }
   const limit = getAccountLimit(plan);
-  const existing = db.select({ n: count() }).from(accounts).where(eq(accounts.userId, userId)).get()!
-    .n;
+  const existing = db
+    .select({ n: count() })
+    .from(accounts)
+    .where(eq(accounts.userId, userId))
+    .get()!.n;
   if (existing >= limit) return bad(accountLimitMessage(limit), 403);
 
   // MetaTrader: MetaApi logs in with the investor password now (so a typo
@@ -77,8 +92,20 @@ export const POST = handler(async (request: Request) => {
   // is stored — never the password.
   let credentials: unknown = body.credentials;
   if (body.kind === "sync" && isMetaTrader(body.broker!)) {
+    // Checked before MetaApi is contacted: adding an account there is billed.
+    if (!metatraderAddonAllowed(plan)) return bad(METATRADER_ADDON_PLAN_MESSAGE, 403);
+    if (countMetaTraderAccounts(userId) >= entitlement.metatraderSlots) {
+      return bad(metatraderSlotsMessage(entitlement.metatraderSlots), 403);
+    }
+    // Every new MetaApi account is billed, so slots can't be churned through
+    // by deleting and connecting different accounts.
+    const connectLimit = entitlement.metatraderSlots * METATRADER_CONNECTS_PER_SLOT;
+    if (recentMetaTraderConnects(userId) >= connectLimit) {
+      return bad(connectLimitMessage(connectLimit), 429);
+    }
     try {
       credentials = await connectMetaTrader(body.name, body.credentials!);
+      recordMetaTraderConnect(userId);
     } catch (error) {
       return bad(error instanceof Error ? error.message : "MetaTrader connection failed", 502);
     }

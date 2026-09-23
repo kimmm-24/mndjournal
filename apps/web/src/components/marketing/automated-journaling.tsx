@@ -29,7 +29,10 @@ export function AutomatedJournaling() {
             </li>
             <li className="flex items-start gap-3 text-sm text-[#c3cad9]">
               <Landmark className="mt-0.5 h-5 w-5 shrink-0 text-[#4d8dff]" />
-              <span>Broker sync — hubungkan akun sekali, fill baru masuk otomatis ke jurnal.</span>
+              <span>
+                Broker sync — hubungkan akun sekali, fill baru masuk otomatis ke jurnal. Auto sync
+                MetaTrader 4/5 tersedia sebagai add-on.
+              </span>
             </li>
             <li className="flex items-start gap-3 text-sm text-[#c3cad9]">
               <Import className="mt-0.5 h-5 w-5 shrink-0 text-[#4d8dff]" />

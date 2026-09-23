@@ -3,11 +3,20 @@ import { accounts, db, executions, trades } from "@/db";
 import { bad, currentUserId, handler, ok } from "@/server/api";
 import { nowIso } from "@/server/ids";
 import { rebuildAccount } from "@/server/rebuild";
-import { isMetaTrader, runAccountSync, startAccountSync } from "@/server/sync";
+import {
+  isMetaTrader,
+  metatraderSyncBlocked,
+  runAccountSync,
+  startAccountSync,
+} from "@/server/sync";
+import {
+  isMetaTraderSyncDay,
+  METATRADER_SYNC_GAP_HOURS,
+  METATRADER_WEEKEND_MESSAGE,
+  syncGapMessage,
+} from "@/lib/metatrader-sync";
 
 type Params = { params: Promise<{ id: string }> };
-
-const MANUAL_METATRADER_SYNC_GAP_MS = 10 * 60 * 1000;
 
 interface ActionBody {
   action: "archive" | "unarchive" | "clear" | "sync" | "transfer";
@@ -42,15 +51,16 @@ export const POST = handler(async (request: Request, { params }: Params) => {
     case "sync": {
       if (account.syncingSince) return bad("This account is already syncing.", 409);
       if (isMetaTrader(account.broker)) {
-        // Each MetaTrader sync is billed by MetaApi, so manual ones are spaced out.
+        const blocked = metatraderSyncBlocked(userId);
+        if (blocked) return bad(blocked, 403);
+        if (!isMetaTraderSyncDay()) return bad(METATRADER_WEEKEND_MESSAGE, 429);
+        // Each sync is billed by MetaApi: one per account per gap, and a
+        // manual one stands in for that day's automatic sync.
         const last = account.syncAttemptedAt ?? account.lastSyncAt;
-        const waitMs = last ? MANUAL_METATRADER_SYNC_GAP_MS - (Date.now() - Date.parse(last)) : 0;
-        if (waitMs > 0) {
-          return bad(
-            `MetaTrader was synced moments ago — try again in ${Math.ceil(waitMs / 60_000)} min.`,
-            429,
-          );
-        }
+        const waitMs = last
+          ? METATRADER_SYNC_GAP_HOURS * 3_600_000 - (Date.now() - Date.parse(last))
+          : 0;
+        if (waitMs > 0) return bad(syncGapMessage(Math.ceil(waitMs / 3_600_000)), 429);
         startAccountSync(id);
         return ok({ started: true });
       }

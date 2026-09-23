@@ -1,7 +1,13 @@
 import { randomBytes } from "node:crypto";
 import { desc, eq } from "drizzle-orm";
 import { db, payments, subscriptions } from "@/db";
-import type { BillingInterval, Plan } from "@/lib/plan";
+import {
+  METATRADER_ADDON_MONTHLY_PRICE,
+  metatraderAddonPrice,
+  proratedAddonPrice,
+  type BillingInterval,
+  type Plan,
+} from "@/lib/plan";
 import { PRICING_TIERS } from "@/lib/pricing-data";
 import {
   createSnapTransaction,
@@ -24,33 +30,42 @@ export const priceFor = (plan: Plan, interval: BillingInterval): number => {
   return interval === "month" ? tier.monthlyPrice : tier.yearlyPrice;
 };
 
+/** What a plan plus its MetaTrader slots costs per month — the unit time credit is converted at. */
+const monthlyValue = (plan: Plan, metatraderSlots: number) =>
+  priceFor(plan, "month") + metatraderSlots * METATRADER_ADDON_MONTHLY_PRICE;
+
 /**
- * Pure: when a newly paid `plan`/`interval` period ends, given what the user
- * already has at `now`.
+ * Pure: when a newly paid `plan`/`interval` period with `metatraderSlots`
+ * ends, given what the user already has at `now`.
  * - Nothing running (expired, comp, or no row): starts now.
  * - Trial still running: starts when the trial ends — paying early never
  *   forfeits trial days.
- * - Same plan still running: extends from its current end (early renewal).
- * - Different plan still running: the unused time is converted at the two
- *   plans' price ratio (e.g. 10 days of Pro → ~5 days of Elite) and the new
- *   period starts after that credit. Yearly prices are the same multiple of
- *   monthly for every tier, so the monthly ratio holds for either interval.
+ * - Same plan and slots still running: extends from its current end (early
+ *   renewal).
+ * - Anything else still running: the unused time is converted at the ratio of
+ *   the two monthly prices, add-on slots included (e.g. 10 days of Pro → ~5
+ *   days of Elite), and the new period starts after that credit. Yearly
+ *   prices are the same multiple of monthly for every tier, so the monthly
+ *   ratio holds for either interval.
  */
 export const nextPeriodEnd = (
   current: SubscriptionRow | undefined,
   plan: Plan,
   interval: BillingInterval,
   now = new Date(),
+  metatraderSlots = 0,
 ): string => {
   const nowMs = now.getTime();
   const currentEnd = current?.endsAt ? Date.parse(current.endsAt) : Number.NaN;
   let startMs = nowMs;
   if (current && current.status !== "comp" && currentEnd > nowMs) {
-    if (current.status === "trial" || current.plan === plan) {
+    const currentSlots = current.metatraderSlots ?? 0;
+    if (current.status === "trial" || (current.plan === plan && currentSlots === metatraderSlots)) {
       startMs = currentEnd;
     } else {
       const credit =
-        ((currentEnd - nowMs) * priceFor(current.plan, "month")) / priceFor(plan, "month");
+        ((currentEnd - nowMs) * monthlyValue(current.plan, currentSlots)) /
+        monthlyValue(plan, metatraderSlots);
       startMs = nowMs + credit;
     }
   }
@@ -93,39 +108,81 @@ const canTransition = (from: PaymentStatus, to: PaymentStatus): boolean => {
 
 const newOrderId = () => `MND-${Date.now()}-${randomBytes(4).toString("hex")}`;
 
+/**
+ * What's being bought (validated by the checkout route):
+ * - 'plan': a period of `plan` with `metatraderSlots` add-on slots.
+ * - 'addon': `metatraderSlots` more slots for the running paid period, which
+ *   ends at `endsAt`, priced for the days it has left.
+ */
+export type CheckoutOrder =
+  | { kind: "plan"; plan: Plan; interval: BillingInterval; metatraderSlots: number }
+  | { kind: "addon"; plan: Plan; endsAt: string; metatraderSlots: number };
+
+interface SnapItem {
+  id: string;
+  price: number;
+  quantity: number;
+  name: string;
+}
+
+const periodName = (interval: BillingInterval) => (interval === "month" ? "bulan" : "tahun");
+
+const checkoutItems = (order: CheckoutOrder, now: Date): SnapItem[] => {
+  const slots = (price: number, name: string): SnapItem[] =>
+    order.metatraderSlots > 0
+      ? [{ id: "metatrader-addon", price, quantity: order.metatraderSlots, name }]
+      : [];
+  if (order.kind === "addon") {
+    return slots(
+      proratedAddonPrice(order.endsAt, now),
+      `Add-on MetaTrader sampai ${order.endsAt.slice(0, 10)}`,
+    );
+  }
+  const tierName = PRICING_TIERS.find((tier) => tier.id === order.plan)?.name ?? order.plan;
+  return [
+    {
+      id: `${order.plan}-${order.interval}`,
+      price: priceFor(order.plan, order.interval),
+      quantity: 1,
+      name: `mndjournal ${tierName} - 1 ${periodName(order.interval)}`,
+    },
+    ...slots(
+      metatraderAddonPrice(order.interval),
+      `Add-on MetaTrader - 1 ${periodName(order.interval)}`,
+    ),
+  ];
+};
+
 export const createCheckout = async (
   user: { id: string; email: string; name: string },
-  plan: Plan,
-  interval: BillingInterval,
+  order: CheckoutOrder,
   finishUrl: string,
+  now = new Date(),
 ): Promise<{ orderId: string; token: string; redirectUrl: string }> => {
-  const amount = priceFor(plan, interval);
+  const items = checkoutItems(order, now);
+  // Midtrans requires the item lines to add up to gross_amount exactly.
+  const amount = items.reduce((total, item) => total + item.price * item.quantity, 0);
   const orderId = newOrderId();
-  const createdAt = new Date().toISOString();
+  const createdAt = now.toISOString();
   db.insert(payments)
     .values({
       orderId,
       userId: user.id,
-      plan,
-      interval,
+      kind: order.kind,
+      plan: order.plan,
+      // An add-on has no period of its own; it ends with the plan's.
+      interval: order.kind === "plan" ? order.interval : "month",
+      metatraderSlots: order.metatraderSlots,
       amount,
       status: "pending",
       createdAt,
       updatedAt: createdAt,
     })
     .run();
-  const tierName = PRICING_TIERS.find((tier) => tier.id === plan)?.name ?? plan;
   try {
     const { token, redirectUrl } = await createSnapTransaction({
       transaction_details: { order_id: orderId, gross_amount: amount },
-      item_details: [
-        {
-          id: `${plan}-${interval}`,
-          price: amount,
-          quantity: 1,
-          name: `mndjournal ${tierName} - 1 ${interval === "month" ? "bulan" : "tahun"}`,
-        },
-      ],
+      item_details: items,
       customer_details: {
         ...(user.name ? { first_name: user.name } : {}),
         ...(user.email ? { email: user.email } : {}),
@@ -200,19 +257,38 @@ export const applyPaymentStatus = async (
         .from(subscriptions)
         .where(eq(subscriptions.userId, fresh.userId))
         .get();
-      const endsAt = nextPeriodEnd(current, fresh.plan, fresh.interval, at);
-      const values = {
-        plan: fresh.plan,
-        status: "active" as const,
-        endsAt,
-        updatedAt: at.toISOString(),
-      };
-      tx.insert(subscriptions)
-        .values({ userId: fresh.userId, ...values })
-        .onConflictDoUpdate({ target: subscriptions.userId, set: values })
-        .run();
+      if (fresh.kind === "addon") {
+        // Slots join whatever period is running now, even one renewed since checkout.
+        tx.update(subscriptions)
+          .set({
+            metatraderSlots: (current?.metatraderSlots ?? 0) + fresh.metatraderSlots,
+            updatedAt: at.toISOString(),
+          })
+          .where(eq(subscriptions.userId, fresh.userId))
+          .run();
+        patch.periodEndsAt = current?.endsAt ?? null;
+      } else {
+        const endsAt = nextPeriodEnd(
+          current,
+          fresh.plan,
+          fresh.interval,
+          at,
+          fresh.metatraderSlots,
+        );
+        const values = {
+          plan: fresh.plan,
+          status: "active" as const,
+          endsAt,
+          metatraderSlots: fresh.metatraderSlots,
+          updatedAt: at.toISOString(),
+        };
+        tx.insert(subscriptions)
+          .values({ userId: fresh.userId, ...values })
+          .onConflictDoUpdate({ target: subscriptions.userId, set: values })
+          .run();
+        patch.periodEndsAt = endsAt;
+      }
       patch.paidAt = at.toISOString();
-      patch.periodEndsAt = endsAt;
     }
     tx.update(payments).set(patch).where(eq(payments.orderId, orderId)).run();
     return { ...fresh, ...patch };

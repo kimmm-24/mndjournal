@@ -3,12 +3,15 @@ import { listPayments, type Payment } from "@/server/billing";
 import { midtransConfigured, snapClientConfig } from "@/server/midtrans";
 import { getEntitlement } from "@/server/plan";
 import type { BillingPayment } from "@/lib/plan";
+import { countMetaTraderAccounts } from "@/server/sync";
 
 /** How long a Snap token stays payable — Midtrans's default order expiry. */
 const SNAP_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 
 const present = (payment: Payment): BillingPayment => ({
   orderId: payment.orderId,
+  kind: payment.kind,
+  metatraderSlots: payment.metatraderSlots,
   plan: payment.plan,
   interval: payment.interval,
   amount: payment.amount,
@@ -31,6 +34,7 @@ export const GET = handler(async () => {
   const userId = await currentUserId();
   return ok({
     entitlement: getEntitlement(userId),
+    metatraderConnected: countMetaTraderAccounts(userId),
     payments: listPayments(userId).map(present),
     configured: midtransConfigured(),
     snap: snapClientConfig(),

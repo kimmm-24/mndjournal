@@ -16,6 +16,36 @@ export const TRIAL_DAYS = 14;
 export const TRIAL_PLAN: Plan = "pro";
 
 /**
+ * MetaTrader auto sync is an add-on sold per connected MetaTrader account, on
+ * top of Pro or Elite: every account costs us MetaApi fees (a one-off fee to
+ * add it, plus one per sync), unlike SDK brokers, which are free API calls.
+ * The price covers even a first month's worst case, one-off fee included,
+ * under the limits in lib/metatrader-sync.ts. Slots run with the plan's
+ * period. A yearly period charges 12 months — no yearly discount, because the
+ * cost behind it doesn't shrink either.
+ */
+export const METATRADER_ADDON_MONTHLY_PRICE = 89_000;
+/** Least a mid-period slot costs: the one-off MetaApi fee to add an account is due regardless. */
+export const METATRADER_ADDON_MIN_PRICE = 49_000;
+export const MAX_METATRADER_SLOTS = 20;
+export const metatraderAddonAllowed = (plan: Plan): boolean => plan !== "starter";
+
+export const metatraderAddonPrice = (interval: BillingInterval): number =>
+  METATRADER_ADDON_MONTHLY_PRICE * (interval === "month" ? 1 : 12);
+
+/**
+ * Pure: the price of one extra MetaTrader slot bought mid-period, for the days
+ * left until `endsAt` (30-day months, whole days, rounded up to Rp1.000), and
+ * never below METATRADER_ADDON_MIN_PRICE. Per slot, so Midtrans's item lines
+ * add up to the total exactly.
+ */
+export const proratedAddonPrice = (endsAt: string, now = new Date()): number => {
+  const days = Math.max(1, Math.ceil((Date.parse(endsAt) - now.getTime()) / 86_400_000));
+  const prorated = Math.ceil((METATRADER_ADDON_MONTHLY_PRICE * days) / 30 / 1000) * 1000;
+  return Math.max(METATRADER_ADDON_MIN_PRICE, prorated);
+};
+
+/**
  * A user's resolved access right now:
  * - `trial`   — free trial, `plan` is TRIAL_PLAN until `endsAt`.
  * - `active`  — a paid period of `plan` running until `endsAt`.
@@ -32,11 +62,16 @@ export interface Entitlement {
   wasTrial: boolean;
   endsAt: string | null;
   readOnly: boolean;
+  /** Paid MetaTrader add-on slots: how many MetaTrader accounts may be connected. */
+  metatraderSlots: number;
 }
 
 /** A payment as the billing page sees it. */
 export interface BillingPayment {
   orderId: string;
+  /** 'plan' buys a period (with its MetaTrader slots); 'addon' adds slots to the running one. */
+  kind: "plan" | "addon";
+  metatraderSlots: number;
   plan: Plan;
   interval: BillingInterval;
   amount: number;
@@ -61,6 +96,16 @@ export const PROP_FIRM_NOT_INCLUDED_MESSAGE =
   "Prop-firm tracking is not included in your plan. Upgrade to Pro or Elite to add a prop-firm account.";
 export const SYNC_IMPORT_NOT_INCLUDED_MESSAGE =
   "Broker sync and file import aren't included in your plan. Upgrade to Pro or Elite, or add a manual account instead.";
+
+export const METATRADER_ADDON_PLAN_MESSAGE = "The MetaTrader add-on is available on Pro and Elite.";
+export const METATRADER_ADDON_RUNNING_MESSAGE =
+  "MetaTrader slots can be added to a running paid plan. Choose a plan with MetaTrader slots instead.";
+export const metatraderSlotsMessage = (slots: number): string =>
+  slots === 0
+    ? "MetaTrader auto sync is an add-on. Add a MetaTrader slot on the Billing page to connect this account."
+    : `Your MetaTrader add-on covers ${slots} account${slots === 1 ? "" : "s"}. Add a slot on the Billing page to connect another.`;
+export const metatraderSlotsBelowConnectedMessage = (connected: number): string =>
+  `You have ${connected} MetaTrader account${connected === 1 ? "" : "s"} connected. Delete some before choosing fewer MetaTrader slots.`;
 
 export const accountLimitMessage = (limit: number): string =>
   `You've reached your plan's limit of ${limit} account${limit === 1 ? "" : "s"}. Upgrade to add more.`;

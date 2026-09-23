@@ -37,6 +37,7 @@ export const PRICING_TIERS: PricingTier[] = [
     bullets: [
       "Sampai 10 akun trading",
       "Import CSV & broker sync",
+      "Add-on auto sync MetaTrader",
       "Playbooks & rule adherence",
       "Trade replay interaktif",
       "AI Reflection (kuota bulanan)",
@@ -82,6 +83,10 @@ export const COMPARISON: ComparisonGroup[] = [
         label: "Import CSV / broker sync (IBKR, MetaTrader, ThinkOrSwim)",
         values: { starter: false, pro: true, elite: true },
       },
+      {
+        label: "Auto sync MetaTrader 4/5 (add-on, sekali sehari Senin–Jumat)",
+        values: { starter: false, pro: "Rp89.000/akun/bulan", elite: "Rp89.000/akun/bulan" },
+      },
       { label: "Commissions & fees tracking", values: { starter: true, pro: true, elite: true } },
       { label: "Multi-currency (tampilan)", values: { starter: true, pro: true, elite: true } },
       { label: "Breakeven settings", values: { starter: true, pro: true, elite: true } },
@@ -114,7 +119,10 @@ export const COMPARISON: ComparisonGroup[] = [
         label: "Playbooks + rule adherence checklist",
         values: { starter: false, pro: true, elite: true },
       },
-      { label: "Analitik performa per-strategi", values: { starter: false, pro: true, elite: true } },
+      {
+        label: "Analitik performa per-strategi",
+        values: { starter: false, pro: true, elite: true },
+      },
     ],
   },
   {

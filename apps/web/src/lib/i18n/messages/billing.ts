@@ -57,6 +57,24 @@ export const billing = defineMessages({
     planEnded: (plan: string) => `Your ${plan} plan has ended`,
     readOnly:
       "Your journal is read-only: everything is still here to view and export, but adding or editing needs an active plan.",
+    addon: {
+      title: "MetaTrader auto sync add-on",
+      body: (price: string) =>
+        `Syncs each MetaTrader 4/5 account once a day, Monday to Friday — automatically, or by hand when you want it sooner. ${price} per MetaTrader account per month, on Pro or Elite. CSV import and other brokers' sync stay included in your plan.`,
+      status: (slots: number, connected: number) =>
+        `Slots: ${slots} · MetaTrader accounts connected: ${connected}`,
+      addNow: (price: string, until: string) => `Add 1 slot now — ${price} until ${until}`,
+      nextPeriod: "MetaTrader slots in your next payment",
+      decrease: "Fewer MetaTrader slots",
+      increase: "More MetaTrader slots",
+      hint: "Applies to the Pro and Elite buttons below. It can't be lower than your connected MetaTrader accounts.",
+      trialHint:
+        "During the trial, add MetaTrader slots together with a plan below — they work as soon as it's paid.",
+      withSlots: (slots: number, price: string) =>
+        `+ ${slots} MetaTrader slot${slots === 1 ? "" : "s"} (${price})`,
+      history: (slots: number) => `MetaTrader add-on · ${slots} slot${slots === 1 ? "" : "s"}`,
+      historySuffix: (slots: number) => ` + ${slots} MetaTrader`,
+    },
   },
   id: {
     title: "Billing",
@@ -120,5 +138,22 @@ export const billing = defineMessages({
     planEnded: (plan: string) => `Paket ${plan} Anda telah berakhir`,
     readOnly:
       "Jurnal Anda sekarang hanya-baca: semua data masih bisa dilihat dan diekspor, tetapi menambah atau mengubah data memerlukan paket aktif.",
+    addon: {
+      title: "Add-on auto sync MetaTrader",
+      body: (price: string) =>
+        `Setiap akun MetaTrader 4/5 disinkronkan sekali sehari, Senin–Jumat — otomatis, atau manual kalau Anda ingin lebih cepat. ${price} per akun MetaTrader per bulan, untuk paket Pro atau Elite. Import CSV dan sync broker lain tetap termasuk dalam paket Anda.`,
+      status: (slots: number, connected: number) =>
+        `Slot: ${slots} · Akun MetaTrader terhubung: ${connected}`,
+      addNow: (price: string, until: string) => `Tambah 1 slot sekarang — ${price} sampai ${until}`,
+      nextPeriod: "Slot MetaTrader di pembayaran berikutnya",
+      decrease: "Kurangi slot MetaTrader",
+      increase: "Tambah slot MetaTrader",
+      hint: "Berlaku untuk tombol Pro dan Elite di bawah. Tidak bisa kurang dari jumlah akun MetaTrader yang terhubung.",
+      trialHint:
+        "Selama uji coba, tambahkan slot MetaTrader bersama paket di bawah — slot langsung aktif setelah dibayar.",
+      withSlots: (slots: number, price: string) => `+ ${slots} slot MetaTrader (${price})`,
+      history: (slots: number) => `Add-on MetaTrader · ${slots} slot`,
+      historySuffix: (slots: number) => ` + ${slots} MetaTrader`,
+    },
   },
 });

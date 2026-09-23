@@ -206,6 +206,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   plan TEXT NOT NULL DEFAULT 'starter',
   status TEXT NOT NULL DEFAULT 'comp',
   ends_at TEXT,
+  metatrader_slots INTEGER NOT NULL DEFAULT 0,
   updated_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS payments (
@@ -213,6 +214,8 @@ CREATE TABLE IF NOT EXISTS payments (
   user_id TEXT NOT NULL,
   plan TEXT NOT NULL,
   interval TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'plan',
+  metatrader_slots INTEGER NOT NULL DEFAULT 0,
   amount INTEGER NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending',
   snap_token TEXT,
@@ -225,6 +228,12 @@ CREATE TABLE IF NOT EXISTS payments (
   updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS payments_user ON payments (user_id, created_at);
+CREATE TABLE IF NOT EXISTS metatrader_connects (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS metatrader_connects_user ON metatrader_connects (user_id, created_at);
 CREATE TABLE IF NOT EXISTS ai_usage (
   user_id TEXT NOT NULL,
   month TEXT NOT NULL,

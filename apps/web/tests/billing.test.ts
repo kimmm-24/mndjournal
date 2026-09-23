@@ -18,10 +18,19 @@ vi.mock("@/server/auth", () => ({
 const SERVER_KEY = "SB-Mid-server-test-key";
 const DAY = 24 * 60 * 60 * 1000;
 
-const { db, subscriptions, payments } = await import("../src/db");
+const { db, subscriptions, payments, accounts } = await import("../src/db");
 const { getEntitlement, resolveEntitlement } = await import("../src/server/plan");
 const { nextPeriodEnd, mapMidtransStatus } = await import("../src/server/billing");
-const { READ_ONLY_MESSAGE, TRIAL_DAYS } = await import("../src/lib/plan");
+const {
+  READ_ONLY_MESSAGE,
+  TRIAL_DAYS,
+  METATRADER_ADDON_PLAN_MESSAGE,
+  METATRADER_ADDON_RUNNING_MESSAGE,
+  metatraderSlotsBelowConnectedMessage,
+  metatraderSlotsMessage,
+} = await import("../src/lib/plan");
+const { metatraderSyncBlocked } = await import("../src/server/sync");
+const { POST: createAccount } = await import("../src/app/api/accounts/route");
 const { GET: getPlanRoute } = await import("../src/app/api/plan/route");
 const playbooksRoute = await import("../src/app/api/playbooks/route");
 const { POST: checkout } = await import("../src/app/api/billing/checkout/route");
@@ -86,6 +95,7 @@ const fetchMock = vi.fn(async (input: string | URL | Request) => {
 beforeEach(() => {
   db.delete(subscriptions).run();
   db.delete(payments).run();
+  db.delete(accounts).run();
   remote = {};
   sessionUser = { id: "test-user", email: "trader@example.com", name: "Trader" };
   vi.stubEnv("MIDTRANS_SERVER_KEY", SERVER_KEY);
@@ -119,7 +129,12 @@ describe("entitlement", () => {
 
   it("keeps pre-billing manual grants ('comp') unexpired and drops lapsed periods to read-only starter", () => {
     const now = new Date("2026-09-01T00:00:00Z");
-    const row = { userId: "u", plan: "elite" as const, updatedAt: now.toISOString() };
+    const row = {
+      userId: "u",
+      plan: "elite" as const,
+      metatraderSlots: 0,
+      updatedAt: now.toISOString(),
+    };
     expect(resolveEntitlement({ ...row, status: "comp", endsAt: null }, now)).toMatchObject({
       plan: "elite",
       readOnly: false,
@@ -171,11 +186,13 @@ describe("nextPeriodEnd", () => {
     plan: "starter" | "pro" | "elite",
     status: "trial" | "active" | "comp",
     daysLeft: number,
+    metatraderSlots = 0,
   ) => ({
     userId: "u",
     plan,
     status,
     endsAt: new Date(now.getTime() + daysLeft * DAY).toISOString(),
+    metatraderSlots,
     updatedAt: now.toISOString(),
   });
   const days = (iso: string) => (Date.parse(iso) - now.getTime()) / DAY;
@@ -197,6 +214,15 @@ describe("nextPeriodEnd", () => {
       30 + (10 * 99) / 199,
       6,
     );
+  });
+
+  it("counts MetaTrader slots in the conversion, and extends when plan and slots match", () => {
+    // 10 days of Pro + 1 slot (99k + 89k) → Pro alone: 10 × 188/99 days.
+    expect(days(nextPeriodEnd(row("pro", "active", 10, 1), "pro", "month", now, 0))).toBeCloseTo(
+      30 + (10 * 188) / 99,
+      6,
+    );
+    expect(days(nextPeriodEnd(row("pro", "active", 10, 2), "pro", "month", now, 2))).toBe(40);
   });
 });
 
@@ -351,5 +377,129 @@ describe("checkout → notification", () => {
       status: "paid",
       entitlement: { plan: "pro", status: "active" },
     });
+  });
+});
+
+describe("MetaTrader add-on", () => {
+  const snapBody = () => {
+    const call = fetchMock.mock.calls.find(([url]) =>
+      String(url).endsWith("/snap/v1/transactions"),
+    );
+    return JSON.parse(String((call as unknown as [string, RequestInit])[1].body));
+  };
+  const addMetaTraderAccount = (id: string) =>
+    db
+      .insert(accounts)
+      .values({
+        id,
+        userId: "test-user",
+        name: id,
+        broker: "metatrader",
+        kind: "sync",
+        currency: "USD",
+        createdAt: new Date().toISOString(),
+      })
+      .run();
+  const settle = async (orderId: string, amount: number) => {
+    remote[orderId] = { transaction_status: "settlement", gross_amount: `${amount}.00` };
+    await verify(json("/api/billing/verify", { orderId }));
+  };
+
+  it("prices a period with slots as plan + slots × Rp79.000 per month (× 12 per year)", async () => {
+    const month = await checkout(
+      json("/api/billing/checkout", { plan: "pro", interval: "month", metatraderSlots: 2 }),
+    );
+    expect(month.status).toBe(200);
+    const body = snapBody();
+    expect(body.transaction_details.gross_amount).toBe(99_000 + 2 * 89_000);
+    expect(body.item_details).toMatchObject([
+      { id: "pro-month", price: 99_000, quantity: 1 },
+      { id: "metatrader-addon", price: 89_000, quantity: 2 },
+    ]);
+
+    fetchMock.mockClear();
+    await checkout(
+      json("/api/billing/checkout", { plan: "elite", interval: "year", metatraderSlots: 1 }),
+    );
+    expect(snapBody().transaction_details.gross_amount).toBe(1_791_000 + 12 * 89_000);
+  });
+
+  it("refuses slots on Starter and fewer slots than connected MetaTrader accounts", async () => {
+    const starter = await checkout(
+      json("/api/billing/checkout", { plan: "starter", interval: "month", metatraderSlots: 1 }),
+    );
+    expect(starter.status).toBe(400);
+    expect((await starter.json()).error).toBe(METATRADER_ADDON_PLAN_MESSAGE);
+
+    addMetaTraderAccount("mt-1");
+    addMetaTraderAccount("mt-2");
+    const tooFew = await checkout(
+      json("/api/billing/checkout", { plan: "pro", interval: "month", metatraderSlots: 1 }),
+    );
+    expect(tooFew.status).toBe(400);
+    expect((await tooFew.json()).error).toBe(metatraderSlotsBelowConnectedMessage(2));
+    // Starter can't sync anyway, so it doesn't have to keep paying for slots.
+    const downgrade = await checkout(
+      json("/api/billing/checkout", { plan: "starter", interval: "month" }),
+    );
+    expect(downgrade.status).toBe(200);
+  });
+
+  it("sets the paid period's slots, and adds prorated slots to a running period", async () => {
+    const started = await checkout(
+      json("/api/billing/checkout", { plan: "pro", interval: "month", metatraderSlots: 1 }),
+    );
+    const { orderId } = await started.json();
+    await settle(orderId, 99_000 + 89_000);
+    expect(getEntitlement("test-user")).toMatchObject({ status: "active", metatraderSlots: 1 });
+
+    // 20 days left: 89.000 × 20/30 = 59.334 → Rp60.000 per slot.
+    setSubscription({ metatraderSlots: 1, endsAt: new Date(Date.now() + 20 * DAY).toISOString() });
+    fetchMock.mockClear();
+    const addon = await checkout(
+      json("/api/billing/checkout", { addon: "metatrader", metatraderSlots: 2 }),
+    );
+    expect(addon.status).toBe(200);
+    expect(snapBody().transaction_details.gross_amount).toBe(2 * 60_000);
+    const endsAt = getEntitlement("test-user").endsAt;
+    await settle((await addon.json()).orderId, 120_000);
+    expect(getEntitlement("test-user")).toMatchObject({ metatraderSlots: 3, endsAt });
+
+    // 5 days left would be Rp15.000; the one-off MetaApi fee sets a floor.
+    setSubscription({ metatraderSlots: 3, endsAt: new Date(Date.now() + 5 * DAY).toISOString() });
+    fetchMock.mockClear();
+    await checkout(json("/api/billing/checkout", { addon: "metatrader", metatraderSlots: 1 }));
+    expect(snapBody().transaction_details.gross_amount).toBe(49_000);
+  });
+
+  it("only sells extra slots to a running paid plan", async () => {
+    setSubscription({ status: "trial", endsAt: new Date(Date.now() + 5 * DAY).toISOString() });
+    const response = await checkout(
+      json("/api/billing/checkout", { addon: "metatrader", metatraderSlots: 1 }),
+    );
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toBe(METATRADER_ADDON_RUNNING_MESSAGE);
+  });
+
+  it("needs a free slot to connect, before MetaApi is contacted, and to sync", async () => {
+    setSubscription({ endsAt: new Date(Date.now() + 10 * DAY).toISOString() });
+    const response = await createAccount(
+      json("/api/accounts", {
+        name: "MT5",
+        kind: "sync",
+        broker: "metatrader",
+        credentials: { login: "123", password: "x", server: "Broker-Live", platform: "mt5" },
+      }),
+    );
+    expect(response.status).toBe(403);
+    expect((await response.json()).error).toBe(metatraderSlotsMessage(0));
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    addMetaTraderAccount("mt-1");
+    expect(metatraderSyncBlocked("test-user")).toBe(metatraderSlotsMessage(0));
+    setSubscription({ metatraderSlots: 1, endsAt: new Date(Date.now() + 10 * DAY).toISOString() });
+    expect(metatraderSyncBlocked("test-user")).toBeNull();
+    setSubscription({ metatraderSlots: 1, endsAt: new Date(Date.now() - DAY).toISOString() });
+    expect(metatraderSyncBlocked("test-user")).toBe(READ_ONLY_MESSAGE);
   });
 });

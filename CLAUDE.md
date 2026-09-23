@@ -117,12 +117,32 @@ earlier naming). It started as a fork of LuxAlgo's open-source, single-user, sel
 - **Status on the account row:** `syncingSince`, `syncError`, and `syncAttemptedAt` (the backoff
   clock). Update them via `runAccountSync()`, which also stops the same account from syncing
   twice at once. MetaTrader's first sync and manual syncs run in the background
-  (`startAccountSync`); the Accounts page polls. Manual MetaTrader syncs are limited to one per
-  10 minutes.
+  (`startAccountSync`); the Accounts page polls. A MetaTrader account syncs at most once per
+  24 hours, automatic and manual combined (see the add-on note below).
 - **Scheduler:** `server/sync-scheduler.ts` is started from `instrumentation.ts` and ticks every
-  10 minutes. It syncs `autoSync` accounts once per `METATRADER_SYNC_INTERVAL_HOURS` (default 6)
-  or `AUTO_SYNC_INTERVAL_HOURS` (default 1), measured from the last *attempt*. It skips users who
+  10 minutes. It syncs `autoSync` accounts once per `METATRADER_SYNC_INTERVAL_HOURS` (default 24)
+  (default 24, and never lower) or `AUTO_SYNC_INTERVAL_HOURS` (default 1), measured from the last *attempt*. It skips users who
   are read-only or whose plan excludes sync.
+- **MetaTrader is a paid add-on** (see **Subscription plans**), because each account costs us
+  MetaApi fees: about $2.1 to add it, and about $0.072 each time its terminal is deployed, which
+  happens on every sync. Connecting, manual syncs and scheduled syncs all check the user's slots
+  (`metatraderSyncBlocked` / `countMetaTraderAccounts` in `server/sync.ts`). The connect check
+  runs *before* MetaApi is contacted. The limits in `lib/metatrader-sync.ts` cap the worst case
+  per slot below the add-on price:
+  - `METATRADER_SYNC_GAP_HOURS` (24): one sync per account per 24 hours. A manual sync takes the
+    place of that day's automatic one, since both are measured from `syncAttemptedAt`.
+  - `isMetaTraderSyncDay`: automatic and manual syncs run Monday to Friday, WIB only; the
+    sync right after connecting is the exception.
+  - `METATRADER_CONNECTS_PER_SLOT` (2): new MetaTrader accounts per slot per 30 days, counted in
+    `metatrader_connects`, which keeps rows after an account is deleted.
+  Worst case per slot is about 23 deploys a month: around Rp45rb including 11% tax, or about
+  Rp83rb in a first month that includes the $2.1 fee to add the account. That's against the
+  Rp89rb price. Change these limits only together with the price. The math assumes MetaApi
+  charges the $2.1 once per account, not every month; check that on the MetaApi invoice.
+- **MetaApi billing errors** ("please top up your account") mean *our* MetaApi balance ran out.
+  `server/metaapi.ts` logs them and shows users `METATRADER_UNAVAILABLE_MESSAGE` instead; the fix
+  is topping up at app.metaapi.cloud. The code uses `cloud-g2`, which MetaApi bills as high
+  reliability; that's cheaper than regular (g1).
 
 ## Email, verification & password reset
 
@@ -173,6 +193,17 @@ bank transfer and e-wallets, which can't be charged recurringly.
   (public, signature-checked). `/api/billing/verify` settles an order from the browser — the only
   path that works on localhost, where Midtrans can't reach the webhook. Prices come from
   `pricing-data.ts`. Refunds mark the payment `refunded` but don't shorten access (manual decision).
+- **MetaTrader add-on** — Rp89.000 (`METATRADER_ADDON_MONTHLY_PRICE` in `lib/plan.ts`) per
+  MetaTrader account per month, Pro and Elite only. A yearly period charges 12× (no discount; the
+  cost behind it doesn't shrink). Slots live in `subscriptions.metatrader_slots` and run with the
+  plan's period:
+  - A plan payment (`payments.kind = 'plan'`) carries the slots for its period. It can't go below
+    the connected MetaTrader accounts (archived ones included, since they still exist in MetaApi).
+  - `kind = 'addon'` buys extra slots for a running *paid* period, priced for the days left
+    (`proratedAddonPrice`), with a floor of `METATRADER_ADDON_MIN_PRICE` (Rp49.000), because the
+    $2.1 fee to add an account is due however few days are left. Trial users get slots by paying for a plan with slots.
+  - `nextPeriodEnd` converts unused time at the ratio of monthly value *including* slots.
+  - For `comp` users, set `metatrader_slots` by SQL along with the plan.
 - **AI model** — the default is the cheapest model (`AI_DEFAULT_MODELS` in `lib/ai-settings.ts`,
   Claude Haiku 4.5). When the server's key is used (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY`), we
   pay, so the model is fixed to the default and users can't pick another (`getAiModel`). Users

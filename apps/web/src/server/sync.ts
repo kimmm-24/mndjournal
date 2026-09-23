@@ -1,7 +1,8 @@
 import { connect, listBrokers as listSdkBrokers, type BrokerId } from "@luxalgo/broker-sdk";
-import { eq, isNotNull } from "drizzle-orm";
+import { and, count, eq, gte, isNotNull } from "drizzle-orm";
 import type { ImportedExecution } from "@luxalgo/journal-importers";
-import { accounts, db } from "@/db";
+import { accounts, db, metatraderConnects } from "@/db";
+import { READ_ONLY_MESSAGE } from "@/lib/plan";
 import { decryptJson, encryptJson } from "./crypto";
 import { nowIso } from "./ids";
 import { insertExecutions, type InsertResult } from "./executions";
@@ -13,6 +14,12 @@ import {
   undeployQuietly,
   type MetaTraderCredentials,
 } from "./metatrader";
+import {
+  getEntitlement,
+  METATRADER_ADDON_PLAN_MESSAGE,
+  metatraderAddonAllowed,
+  metatraderSlotsMessage,
+} from "./plan";
 
 /**
  * Broker connectivity goes through @luxalgo/broker-sdk, except MetaTrader,
@@ -26,6 +33,53 @@ export const listBrokers = () => [
 ];
 
 export const isMetaTrader = (broker: string) => broker === METATRADER_BROKER_ID;
+
+/**
+ * MetaTrader accounts the user has, archived ones included: each one is a
+ * MetaApi account, which is what the add-on slots pay for.
+ */
+export const countMetaTraderAccounts = (userId: string): number =>
+  db
+    .select({ n: count() })
+    .from(accounts)
+    .where(
+      and(
+        eq(accounts.userId, userId),
+        eq(accounts.kind, "sync"),
+        eq(accounts.broker, METATRADER_BROKER_ID),
+      ),
+    )
+    .get()!.n;
+
+/** MetaTrader accounts connected in the last 30 days, deleted ones included. */
+export const recentMetaTraderConnects = (userId: string, now = new Date()): number =>
+  db
+    .select({ n: count() })
+    .from(metatraderConnects)
+    .where(
+      and(
+        eq(metatraderConnects.userId, userId),
+        gte(
+          metatraderConnects.createdAt,
+          new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        ),
+      ),
+    )
+    .get()!.n;
+
+export const recordMetaTraderConnect = (userId: string, now = new Date()): void => {
+  db.insert(metatraderConnects).values({ userId, createdAt: now.toISOString() }).run();
+};
+
+/** Why this user's MetaTrader accounts can't sync right now, or null when they can. */
+export const metatraderSyncBlocked = (userId: string, now = new Date()): string | null => {
+  const entitlement = getEntitlement(userId, now);
+  if (entitlement.readOnly) return READ_ONLY_MESSAGE;
+  if (!metatraderAddonAllowed(entitlement.plan)) return METATRADER_ADDON_PLAN_MESSAGE;
+  return countMetaTraderAccounts(userId) > entitlement.metatraderSlots
+    ? metatraderSlotsMessage(entitlement.metatraderSlots)
+    : null;
+};
 
 export interface SyncOutcome extends InsertResult {
   accountId: string;

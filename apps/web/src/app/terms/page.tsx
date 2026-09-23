@@ -52,7 +52,9 @@ export default function TermsPage() {
               (Starter, Pro, dan Elite / Prop Trader) sebagaimana dijelaskan di halaman Harga. Paket
               dibayar di muka per bulan atau per tahun melalui Midtrans dan tidak diperpanjang
               secara otomatis. Harga dapat berubah sewaktu-waktu dengan pemberitahuan sebelumnya;
-              perubahan harga tidak memengaruhi periode yang sudah dibayar. Bila masa uji coba atau
+              perubahan harga tidak memengaruhi periode yang sudah dibayar. Auto sync MetaTrader
+              adalah add-on berbayar per akun MetaTrader yang mengikuti periode paket Anda; slot
+              yang ditambahkan di tengah periode dihitung sesuai sisa hari. Bila masa uji coba atau
               periode berbayar berakhir tanpa perpanjangan, akun Anda menjadi hanya-baca: data tetap
               dapat dilihat dan diekspor, tetapi tidak dapat ditambah atau diubah.
             </p>

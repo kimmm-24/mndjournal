@@ -1,10 +1,14 @@
 import { PLAN_NOT_INCLUDED_MESSAGE } from "../ai-quota";
 import {
+  METATRADER_ADDON_PLAN_MESSAGE,
+  METATRADER_ADDON_RUNNING_MESSAGE,
+  metatraderSlotsMessage,
   PLAYBOOKS_NOT_INCLUDED_MESSAGE,
   PROP_FIRM_NOT_INCLUDED_MESSAGE,
   READ_ONLY_MESSAGE,
   SYNC_IMPORT_NOT_INCLUDED_MESSAGE,
 } from "../plan";
+import { METATRADER_UNAVAILABLE_MESSAGE, METATRADER_WEEKEND_MESSAGE } from "../metatrader-sync";
 import type { Locale } from "./locale";
 
 /**
@@ -69,6 +73,18 @@ const EXACT: Record<string, string> = {
     "Gagal masuk ke akun MetaTrader Anda. Jika Anda mengganti investor password, hubungkan ulang akun ini.",
   "MetaTrader didn't connect in time. It will retry on the next sync.":
     "MetaTrader tidak terhubung tepat waktu. Akan dicoba lagi pada sinkronisasi berikutnya.",
+
+  [METATRADER_WEEKEND_MESSAGE]:
+    "Sinkronisasi MetaTrader berjalan Senin–Jumat (WIB), saat pasar buka. Trade akhir pekan akan tersinkron hari Senin.",
+  [METATRADER_UNAVAILABLE_MESSAGE]:
+    "Sinkronisasi MetaTrader sedang tidak tersedia. Silakan coba lagi nanti.",
+  [METATRADER_ADDON_PLAN_MESSAGE]: "Add-on MetaTrader tersedia untuk paket Pro dan Elite.",
+  [METATRADER_ADDON_RUNNING_MESSAGE]:
+    "Slot MetaTrader hanya bisa ditambahkan ke paket berbayar yang sedang berjalan. Pilih paket beserta slot MetaTrader-nya.",
+  [metatraderSlotsMessage(0)]:
+    "Auto sync MetaTrader adalah add-on. Tambahkan slot MetaTrader di halaman Billing untuk menghubungkan akun ini.",
+  "Choose how many MetaTrader slots to add.":
+    "Pilih jumlah slot MetaTrader yang ingin ditambahkan.",
 
   "Payments aren't configured on this server yet.": "Pembayaran belum dikonfigurasi di server ini.",
   "Unknown plan": "Paket tidak dikenal.",
@@ -169,6 +185,26 @@ const PATTERNS: Pattern[] = [
   [
     /^MetaTrader was synced moments ago — try again in (\d+) min\.$/,
     (m) => `MetaTrader baru saja disinkronkan — coba lagi dalam ${m[1]} menit.`,
+  ],
+  [
+    /^Your MetaTrader add-on covers (\d+) accounts?\. Add a slot on the Billing page to connect another\.$/,
+    (m) =>
+      `Add-on MetaTrader Anda mencakup ${m[1]} akun. Tambah slot di halaman Billing untuk menghubungkan akun lain.`,
+  ],
+  [
+    /^You have (\d+) MetaTrader accounts? connected\. Delete some before choosing fewer MetaTrader slots\.$/,
+    (m) =>
+      `Anda punya ${m[1]} akun MetaTrader yang terhubung. Hapus sebagian dulu sebelum memilih slot MetaTrader yang lebih sedikit.`,
+  ],
+  [
+    /^This account already synced in the last (\d+) hours\. The next sync is possible in (\d+) h\.$/,
+    (m) =>
+      `Akun ini sudah disinkronkan dalam ${m[1]} jam terakhir. Sync berikutnya bisa dilakukan dalam ${m[2]} jam.`,
+  ],
+  [
+    /^Your MetaTrader slots allow (\d+) new MetaTrader accounts? per 30 days, and you've reached that\. Try again later\.$/,
+    (m) =>
+      `Slot MetaTrader Anda mengizinkan ${m[1]} akun MetaTrader baru per 30 hari, dan batas itu sudah tercapai. Coba lagi nanti.`,
   ],
   [/^Couldn't connect to MetaTrader: (.*)$/, (m) => `Gagal terhubung ke MetaTrader: ${m[1]}`],
   [/^Couldn't read MetaTrader history: (.*)$/, (m) => `Gagal membaca riwayat MetaTrader: ${m[1]}`],

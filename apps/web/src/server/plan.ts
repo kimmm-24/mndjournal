@@ -10,8 +10,17 @@ export type SubscriptionRow = typeof subscriptions.$inferSelect;
 export const resolveEntitlement = (row: SubscriptionRow, now = new Date()): Entitlement => {
   const lastPlan: Plan = isPlan(row.plan) ? row.plan : "starter";
   const wasTrial = row.status === "trial";
+  const metatraderSlots = row.metatraderSlots ?? 0;
   if (row.status === "comp") {
-    return { plan: lastPlan, status: "comp", lastPlan, wasTrial, endsAt: null, readOnly: false };
+    return {
+      plan: lastPlan,
+      status: "comp",
+      lastPlan,
+      wasTrial,
+      endsAt: null,
+      readOnly: false,
+      metatraderSlots,
+    };
   }
   const endsAt = row.endsAt;
   if (endsAt && Date.parse(endsAt) > now.getTime()) {
@@ -22,9 +31,18 @@ export const resolveEntitlement = (row: SubscriptionRow, now = new Date()): Enti
       wasTrial,
       endsAt,
       readOnly: false,
+      metatraderSlots,
     };
   }
-  return { plan: "starter", status: "expired", lastPlan, wasTrial, endsAt, readOnly: true };
+  return {
+    plan: "starter",
+    status: "expired",
+    lastPlan,
+    wasTrial,
+    endsAt,
+    readOnly: true,
+    metatraderSlots,
+  };
 };
 
 /**
@@ -76,6 +94,11 @@ export const replayAllowed = (plan: Plan): boolean => plan !== "starter";
 // The messages live in lib/plan.ts so the browser can translate them (lib/i18n/server-errors.ts).
 export {
   accountLimitMessage,
+  METATRADER_ADDON_PLAN_MESSAGE,
+  METATRADER_ADDON_RUNNING_MESSAGE,
+  metatraderAddonAllowed,
+  metatraderSlotsBelowConnectedMessage,
+  metatraderSlotsMessage,
   PLAYBOOKS_NOT_INCLUDED_MESSAGE,
   PROP_FIRM_NOT_INCLUDED_MESSAGE,
   propAccountLimitMessage,

@@ -433,6 +433,8 @@ export const subscriptions = sqliteTable("subscriptions", {
     .default("comp"),
   /** End of the trial or paid period (ISO, UTC). Null for 'comp'. */
   endsAt: text("ends_at"),
+  /** Paid MetaTrader add-on slots (lib/plan.ts). Granted by hand for 'comp'. */
+  metatraderSlots: integer("metatrader_slots").notNull().default(0),
   updatedAt: text("updated_at").notNull(),
 });
 
@@ -450,6 +452,12 @@ export const payments = sqliteTable(
     userId: text("user_id").notNull(),
     plan: text("plan", { enum: ["starter", "pro", "elite"] }).notNull(),
     interval: text("interval", { enum: ["month", "year"] }).notNull(),
+    /** 'plan' buys a period; 'addon' adds MetaTrader slots to the running period. */
+    kind: text("kind", { enum: ["plan", "addon"] })
+      .notNull()
+      .default("plan"),
+    /** 'plan': the slots the new period comes with. 'addon': how many slots it adds. */
+    metatraderSlots: integer("metatrader_slots").notNull().default(0),
     /** Rupiah, whole number — Midtrans's gross_amount for IDR has no decimals. */
     amount: integer("amount").notNull(),
     status: text("status", { enum: ["pending", "paid", "failed", "expired", "refunded"] })
@@ -466,6 +474,21 @@ export const payments = sqliteTable(
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [index("payments_user").on(table.userId, table.createdAt)],
+);
+
+/**
+ * One row per MetaTrader account connected (a MetaApi account created, which
+ * MetaApi bills for), kept after the account is deleted, so the per-slot
+ * connect limit (lib/metatrader-sync.ts) can't be dodged by deleting.
+ */
+export const metatraderConnects = sqliteTable(
+  "metatrader_connects",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: text("user_id").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [index("metatrader_connects_user").on(table.userId, table.createdAt)],
 );
 
 /**

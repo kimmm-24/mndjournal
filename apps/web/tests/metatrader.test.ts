@@ -3,6 +3,13 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
+const {
+  connectLimitMessage,
+  isMetaTraderSyncDay,
+  METATRADER_UNAVAILABLE_MESSAGE,
+  METATRADER_WEEKEND_MESSAGE,
+  syncGapMessage,
+} = await import("../src/lib/metatrader-sync");
 
 const originalDir = process.env.JOURNAL_DATA_DIR;
 const scratch = mkdtempSync(join(tmpdir(), "journal-metatrader-test-"));
@@ -12,7 +19,8 @@ vi.mock("@/server/auth", () => ({
   auth: { api: { getSession: async () => ({ user: { id: "test-user" }, session: {} }) } },
 }));
 
-const { db, accounts, executions, trades, subscriptions } = await import("../src/db");
+const { db, accounts, executions, trades, subscriptions, metatraderConnects } =
+  await import("../src/db");
 const { dealsToExecutions } = await import("../src/server/metatrader");
 const { timing } = await import("../src/server/metaapi");
 const { insertExecutions } = await import("../src/server/executions");
@@ -36,7 +44,13 @@ const deal = (overrides: Partial<Deal> & Pick<Deal, "id" | "type" | "time">): De
   ...overrides,
 });
 
-const plan = (value: "pro" | "starter", status: "comp" | "trial" = "comp", endsAt?: string) =>
+// MetaTrader needs add-on slots; tests get plenty unless they say otherwise.
+const plan = (
+  value: "pro" | "starter",
+  status: "comp" | "trial" = "comp",
+  endsAt?: string,
+  metatraderSlots = 10,
+) =>
   db
     .insert(subscriptions)
     .values({
@@ -44,11 +58,12 @@ const plan = (value: "pro" | "starter", status: "comp" | "trial" = "comp", endsA
       plan: value,
       status,
       endsAt,
+      metatraderSlots,
       updatedAt: new Date().toISOString(),
     })
     .onConflictDoUpdate({
       target: subscriptions.userId,
-      set: { plan: value, status, endsAt: endsAt ?? null },
+      set: { plan: value, status, endsAt: endsAt ?? null, metatraderSlots },
     })
     .run();
 
@@ -80,11 +95,13 @@ beforeEach(() => {
   db.delete(trades).run();
   db.delete(executions).run();
   db.delete(accounts).run();
+  db.delete(metatraderConnects).run();
   plan("pro");
 });
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 afterAll(() => {
   db.$client.close();
@@ -298,6 +315,14 @@ const metaApi = vi.fn(async (input: string | URL | Request, init?: RequestInit) 
   });
   if (method === "POST" && url.endsWith("/users/current/accounts")) {
     const status = provisionReplies.shift() ?? 201;
+    if (status === 403)
+      return Response.json(
+        {
+          error: "ForbiddenError",
+          message: "To allow high reliability please top up your account.",
+        },
+        { status: 403 },
+      );
     return status === 202
       ? new Response(null, { status: 202, headers: { "Retry-After": "1" } })
       : Response.json({ id: "ma-1", state: "UNDEPLOYED" }, { status: 201 });
@@ -365,6 +390,9 @@ const accountRow = (id: string) => db.select().from(accounts).where(eq(accounts.
 
 describe("MetaTrader via MetaApi", () => {
   beforeEach(() => {
+    // A Wednesday: MetaTrader only syncs on weekdays. Only Date is faked, so waits still run.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-09T05:00:00Z"));
     calls.length = 0;
     provisionReplies = [];
     failDeals = false;
@@ -446,6 +474,34 @@ describe("MetaTrader via MetaApi", () => {
     );
     expect(again.status).toBe(429);
 
+    // One sync per 24 hours, counting the automatic first one.
+    expect((await again.json()).error).toBe(syncGapMessage(24));
+    db.update(accounts)
+      .set({ syncAttemptedAt: new Date(Date.now() - 25 * 3_600_000).toISOString() })
+      .where(eq(accounts.id, id))
+      .run();
+    const manual = await accountAction(
+      new Request(`http://localhost/api/accounts/${id}/actions`, {
+        method: "POST",
+        body: JSON.stringify({ action: "sync" }),
+      }),
+      params,
+    );
+    expect(manual.status).toBe(200);
+    await vi.waitFor(() => expect(accountRow(id).syncingSince).toBeNull());
+
+    // Not at the weekend, even when the day's sync is still unused.
+    vi.setSystemTime(new Date("2026-09-12T05:00:00Z")); // Saturday
+    const weekend = await accountAction(
+      new Request(`http://localhost/api/accounts/${id}/actions`, {
+        method: "POST",
+        body: JSON.stringify({ action: "sync" }),
+      }),
+      params,
+    );
+    expect(weekend.status).toBe(429);
+    expect((await weekend.json()).error).toBe(METATRADER_WEEKEND_MESSAGE);
+
     const deleted = await deleteAccount(
       new Request(`http://localhost/api/accounts/${id}`, { method: "DELETE" }),
       params,
@@ -453,6 +509,35 @@ describe("MetaTrader via MetaApi", () => {
     expect(deleted.status).toBe(200);
     expect(calls.at(-1)).toMatchObject({ method: "DELETE" });
     expect(calls.at(-1)!.url).toMatch(/\/users\/current\/accounts\/ma-1$/);
+  });
+
+  it("limits new MetaTrader accounts per slot, even after deleting them", async () => {
+    plan("pro", "comp", undefined, 1);
+    const undeploys = () => calls.filter((call) => call.url.endsWith("/undeploy")).length;
+    // Connect, let the first sync finish, then delete: it was still a billed MetaApi account.
+    for (let i = 1; i <= 2; i++) {
+      expect((await post(connectBody)).status).toBe(200);
+      await vi.waitFor(() => expect(undeploys()).toBe(i));
+      db.delete(accounts).run();
+    }
+    const provisions = calls.filter((call) => call.url.endsWith("/users/current/accounts")).length;
+    const third = await post(connectBody);
+    expect(third.status).toBe(429);
+    expect((await third.json()).error).toBe(connectLimitMessage(2));
+    expect(calls.filter((call) => call.url.endsWith("/users/current/accounts"))).toHaveLength(
+      provisions,
+    );
+  });
+
+  it("hides MetaApi's own billing errors from users and logs them for us", async () => {
+    provisionReplies = [403];
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    const response = await post(connectBody);
+    expect(response.status).toBe(502);
+    expect((await response.json()).error).toBe(METATRADER_UNAVAILABLE_MESSAGE);
+    expect(String(logged.mock.calls[0]![0])).toMatch(/top up/);
+    logged.mockRestore();
+    expect(db.select().from(accounts).all()).toHaveLength(0);
   });
 
   it("rejects a malformed login before contacting MetaApi", async () => {
@@ -474,9 +559,9 @@ describe("auto-sync scheduler", () => {
     const due = makeAccount({
       autoSync: true,
       credentialsEnc: "x",
-      syncAttemptedAt: ago(7 * 3600_000),
+      syncAttemptedAt: ago(25 * 3600_000),
     });
-    makeAccount({ autoSync: true, credentialsEnc: "x", syncAttemptedAt: ago(2 * 3600_000) }); // MT: 6h interval
+    makeAccount({ autoSync: true, credentialsEnc: "x", syncAttemptedAt: ago(7 * 3600_000) }); // MT: 24h interval
     makeAccount({ autoSync: false, credentialsEnc: "x" });
     makeAccount({ autoSync: true, credentialsEnc: "x", archivedAt: ago(DAY) });
     makeAccount({ autoSync: true, credentialsEnc: "x", syncingSince: ago(60_000) });
@@ -499,5 +584,27 @@ describe("auto-sync scheduler", () => {
     expect(dueAccounts(now)).toHaveLength(0);
     plan("starter");
     expect(dueAccounts(now)).toHaveLength(0);
+  });
+
+  it("syncs MetaTrader on weekdays in Jakarta time only", () => {
+    expect(isMetaTraderSyncDay(new Date("2026-09-11T16:30:00Z"))).toBe(true); // Fri 23:30 WIB
+    expect(isMetaTraderSyncDay(new Date("2026-09-11T17:30:00Z"))).toBe(false); // Sat 00:30 WIB
+    expect(isMetaTraderSyncDay(new Date("2026-09-13T16:30:00Z"))).toBe(false); // Sun 23:30 WIB
+    expect(isMetaTraderSyncDay(new Date("2026-09-13T17:30:00Z"))).toBe(true); // Mon 00:30 WIB
+
+    makeAccount({ autoSync: true, credentialsEnc: "x" });
+    const sdk = makeAccount({ broker: "binance", autoSync: true, credentialsEnc: "x" });
+    const saturday = new Date("2026-09-12T05:00:00Z");
+    expect(dueAccounts(saturday).map((account) => account.id)).toEqual([sdk]);
+  });
+
+  it("skips MetaTrader, but not other brokers, when there are more MetaTrader accounts than slots", () => {
+    makeAccount({ autoSync: true, credentialsEnc: "x" });
+    makeAccount({ autoSync: true, credentialsEnc: "x" });
+    const sdk = makeAccount({ broker: "binance", autoSync: true, credentialsEnc: "x" });
+    plan("pro", "comp", undefined, 1);
+    expect(dueAccounts(now).map((account) => account.id)).toEqual([sdk]);
+    plan("pro", "comp", undefined, 2);
+    expect(dueAccounts(now)).toHaveLength(3);
   });
 });

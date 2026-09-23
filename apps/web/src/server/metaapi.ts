@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { METATRADER_UNAVAILABLE_MESSAGE } from "@/lib/metatrader-sync";
 
 /**
  * Minimal MetaApi (metaapi.cloud) REST client — MetaTrader 4/5 account
@@ -49,6 +50,12 @@ const fail = async (response: Response, action: string): Promise<never> => {
     message?: string;
     details?: unknown;
   };
+  // Our own MetaApi balance ran out. Users would read "top up your account"
+  // as their trading account, so they get a neutral message; we get the log.
+  if (/top up/i.test(body.message ?? "")) {
+    console.error(`[metaapi] ${action}: ${body.message} — top up the MetaApi balance`);
+    throw new MetaApiError(METATRADER_UNAVAILABLE_MESSAGE, 503, body.error);
+  }
   throw new MetaApiError(
     `${action}: ${body.message ?? `HTTP ${response.status}`}`,
     response.status,

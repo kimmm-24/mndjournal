@@ -4,5 +4,7 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     const { ensureLegacyOwner } = await import("@/server/legacy-migration");
     await ensureLegacyOwner();
+    const { grandfatherExistingUsers } = await import("@/server/auth");
+    grandfatherExistingUsers();
   }
 }

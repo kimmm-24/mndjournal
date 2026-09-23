@@ -64,6 +64,8 @@ const PUBLIC_SHELL_BYPASS = new Set([
   "/",
   "/login",
   "/signup",
+  "/forgot-password",
+  "/reset-password",
   "/pricing",
   "/terms",
   "/privacy",

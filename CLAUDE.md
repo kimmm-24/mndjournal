@@ -65,6 +65,25 @@ earlier naming). It started as a fork of LuxAlgo's open-source, single-user, sel
   `pnpm build` (multiple build workers racing to migrate the same file). Don't revert this to an
   eager singleton.
 
+## Email, verification & password reset
+
+- **`server/email.ts`** sends through Resend's HTTP API (`RESEND_API_KEY`, `EMAIL_FROM`). It
+  doesn't use SMTP because Railway blocks outbound SMTP on Hobby/Trial plans. Without a key,
+  emails are printed to the server log instead (that's how local dev gets its links).
+- **Templates** in `server/email-templates.ts` are bilingual, Indonesian first then English, with
+  inline styles only. User-supplied values (the name) must go through `escapeHtml`.
+- **`server/auth.ts`** wires Better Auth's `sendResetPassword` / `sendVerificationEmail` via
+  `deliver()`, which is fire-and-forget. Never await email delivery in auth flows: awaiting makes
+  "forgot password" respond slower for real accounts, which leaks which emails are registered.
+- **Verification is required only when `RESEND_API_KEY` is set.** Blocked sign-ins automatically
+  get a fresh link (`sendOnSignIn`).
+- **Grandfathering:** `grandfatherExistingUsers()`, called from `instrumentation.ts`, marks every
+  existing user verified the first time the app boots with email configured, then stores a
+  one-time marker (`emailVerificationEnforcedAt` setting). The legacy-migrated owner account is
+  marked verified when it's created.
+- **Pages:** `/forgot-password` → email link → Better Auth's `/api/auth/reset-password/:token` →
+  `/reset-password?token=…`. A reset signs the user out on all devices.
+
 ## Subscription plans & feature gating
 
 Three paid plans: `starter` / `pro` / `elite`, billed as **prepaid periods** (1 month = 30 days,

@@ -15,6 +15,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
 
@@ -22,8 +23,18 @@ export default function LoginPage() {
     event.preventDefault();
     setSubmitting(true);
     setError(null);
-    const { error: signInError } = await authClient.signIn.email({ email, password });
+    setNotice(null);
+    const { error: signInError } = await authClient.signIn.email({
+      email,
+      password,
+      callbackURL: "/dashboard",
+    });
     setSubmitting(false);
+    if (signInError?.code === "EMAIL_NOT_VERIFIED") {
+      // Better Auth has just emailed a fresh link (sendOnSignIn).
+      setNotice(`Verify your email first — we've sent a new link to ${email}.`);
+      return;
+    }
     if (signInError) {
       setError(signInError.message ?? "Wrong email or password");
       return;
@@ -76,7 +87,16 @@ export default function LoginPage() {
               placeholder="Password"
               autoComplete="current-password"
             />
+            <div className="text-right">
+              <Link
+                href="/forgot-password"
+                className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </div>
             {error && <p className="text-center text-xs text-loss">{error}</p>}
+            {notice && <p className="text-center text-xs text-muted-foreground">{notice}</p>}
             <Button type="submit" className="w-full" disabled={submitting}>
               Sign in
             </Button>

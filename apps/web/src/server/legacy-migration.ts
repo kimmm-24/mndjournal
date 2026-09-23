@@ -129,6 +129,8 @@ export const ensureLegacyOwner = async (): Promise<void> => {
       body: { name: "Journal owner", email, password },
     });
     legacyUserId = created.id;
+    // The self-hoster's own account: there's no inbox behind admin@localhost to verify.
+    db.update(user).set({ emailVerified: true }).where(eq(user.id, legacyUserId)).run();
     console.log(`\n[mndjournal] Migrated your existing journal to an account: ${email}`);
     console.log(
       usingGenerated

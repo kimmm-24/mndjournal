@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { AuthCard } from "@/components/auth-card";
 import { GoogleMark } from "@/components/google-mark";
 import { authClient } from "@/lib/auth-client";
 
@@ -18,19 +19,28 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
+  const [verifyEmail, setVerifyEmail] = useState<string | null>(null);
+  const [resent, setResent] = useState<"idle" | "sending" | "sent">("idle");
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setSubmitting(true);
     setError(null);
-    const { error: signUpError } = await authClient.signUp.email({
+    const { data, error: signUpError } = await authClient.signUp.email({
       name: name.trim() || email,
       email,
       password,
+      // Where the emailed verification link lands, signed in.
+      callbackURL: "/dashboard",
     });
     setSubmitting(false);
     if (signUpError) {
       setError(signUpError.message ?? "Could not create account");
+      return;
+    }
+    // No session token = email verification is required before signing in.
+    if (!data?.token) {
+      setVerifyEmail(email);
       return;
     }
     router.push("/dashboard");
@@ -50,6 +60,43 @@ export default function SignupPage() {
     }
     // On success the client redirects to Google, so no further state update here.
   };
+
+  const resend = async () => {
+    if (!verifyEmail) return;
+    setResent("sending");
+    await authClient.sendVerificationEmail({ email: verifyEmail, callbackURL: "/dashboard" });
+    setResent("sent");
+  };
+
+  if (verifyEmail) {
+    return (
+      <AuthCard title="Check your email">
+        <p className="text-center text-sm text-muted-foreground">
+          We&apos;ve sent a verification link to{" "}
+          <span className="text-foreground">{verifyEmail}</span>. Click it to activate your account
+          and start your free trial. Check your spam folder if it doesn&apos;t arrive.
+        </p>
+        <Button
+          variant="outline"
+          className="w-full"
+          disabled={resent !== "idle"}
+          onClick={() => void resend()}
+        >
+          {resent === "sent"
+            ? "Sent — check your inbox"
+            : resent === "sending"
+              ? "Sending…"
+              : "Resend email"}
+        </Button>
+        <p className="text-center text-xs text-muted-foreground">
+          Already verified?{" "}
+          <Link href="/login" className="underline">
+            Sign in
+          </Link>
+        </p>
+      </AuthCard>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center">

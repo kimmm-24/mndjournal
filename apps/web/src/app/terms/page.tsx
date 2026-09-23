@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { LegalPage, LegalSection } from "@/components/marketing/legal-page";
+import { TRIAL_DAYS } from "@/lib/plan";
 
 export const metadata: Metadata = {
   title: "Syarat & Ketentuan — mndjournal",
@@ -17,10 +18,9 @@ export default function TermsPage() {
           <LegalSection heading="1. Tentang Layanan">
             <p>
               mndjournal ("kami", "layanan") adalah aplikasi jurnal trading yang membantu Anda
-              mencatat, mengorganisir, dan menganalisa riwayat trading Anda di berbagai
-              instrumen — saham, forex, futures, crypto, gold, dan lainnya. Dengan membuat akun
-              atau menggunakan layanan ini, Anda setuju untuk terikat pada syarat dan ketentuan
-              berikut.
+              mencatat, mengorganisir, dan menganalisa riwayat trading Anda di berbagai instrumen —
+              saham, forex, futures, crypto, gold, dan lainnya. Dengan membuat akun atau menggunakan
+              layanan ini, Anda setuju untuk terikat pada syarat dan ketentuan berikut.
             </p>
           </LegalSection>
 
@@ -48,10 +48,13 @@ export default function TermsPage() {
 
           <LegalSection heading="4. Paket Berlangganan & Pembayaran">
             <p>
-              mndjournal menyediakan paket gratis dan berbayar (Starter, Pro, dan Elite / Prop
-              Trader) sebagaimana dijelaskan di halaman Harga. Harga ditagih secara bulanan dan
-              dapat berubah sewaktu-waktu dengan pemberitahuan sebelumnya. Anda dapat membatalkan
-              langganan kapan saja; pembatalan berlaku pada akhir periode penagihan berjalan.
+              mndjournal menyediakan masa uji coba gratis {TRIAL_DAYS} hari dan paket berbayar
+              (Starter, Pro, dan Elite / Prop Trader) sebagaimana dijelaskan di halaman Harga. Paket
+              dibayar di muka per bulan atau per tahun melalui Midtrans dan tidak diperpanjang
+              secara otomatis. Harga dapat berubah sewaktu-waktu dengan pemberitahuan sebelumnya;
+              perubahan harga tidak memengaruhi periode yang sudah dibayar. Bila masa uji coba atau
+              periode berbayar berakhir tanpa perpanjangan, akun Anda menjadi hanya-baca: data tetap
+              dapat dilihat dan diekspor, tetapi tidak dapat ditambah atau diubah.
             </p>
           </LegalSection>
 

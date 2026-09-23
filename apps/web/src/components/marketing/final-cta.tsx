@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { TRIAL_DAYS } from "@/lib/plan";
 
 export function FinalCta() {
   return (
@@ -9,7 +10,7 @@ export function FinalCta() {
           Mulai Journaling Trading Anda Hari Ini
         </h2>
         <p className="mt-3 text-[#9aa4b8]">
-          Gratis untuk mulai. Tidak perlu kartu kredit.
+          Coba gratis {TRIAL_DAYS} hari dengan fitur Pro. Tidak perlu kartu kredit.
         </p>
         <div className="mt-8">
           <Link

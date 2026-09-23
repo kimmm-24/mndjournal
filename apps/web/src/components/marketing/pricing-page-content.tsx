@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { PricingCards } from "./pricing-cards";
 import { ComparisonTable } from "./comparison-table";
+import { TRIAL_DAYS } from "@/lib/plan";
 
 export function PricingPageContent() {
   const [billing, setBilling] = useState<"monthly" | "yearly">("monthly");
@@ -12,9 +13,9 @@ export function PricingPageContent() {
       <div className="mx-auto max-w-2xl px-4 text-center sm:px-6">
         <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">Harga</h1>
         <p className="mt-3 text-[#9aa4b8]">
-          Mulai gratis, upgrade kapan saja. Semua paket termasuk dashboard analytics lengkap —
-          bedanya ada di akun trading, playbooks, trade replay, AI reflection, dan prop-firm
-          tracking.
+          Coba gratis {TRIAL_DAYS} hari dengan fitur Pro, lalu pilih paket. Semua paket termasuk
+          dashboard analytics lengkap — bedanya ada di akun trading, playbooks, trade replay, AI
+          reflection, dan prop-firm tracking.
         </p>
 
         <div className="mx-auto mt-7 inline-flex items-center gap-1 rounded-lg border border-[#2a3245] bg-[#1c2230] p-1">

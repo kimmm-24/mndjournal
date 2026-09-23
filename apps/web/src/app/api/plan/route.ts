@@ -1,8 +1,11 @@
 import { currentUserId, handler, ok } from "@/server/api";
-import { getPlan } from "@/server/plan";
+import { getEntitlement } from "@/server/plan";
 
-/** The signed-in user's plan — used to hide/enable plan-gated UI (playbooks, sync/import, replay, ...). */
+/**
+ * The signed-in user's entitlement — `plan` drives plan-gated UI (playbooks,
+ * sync/import, replay, ...); the rest drives the shell's trial/renewal banner.
+ */
 export const GET = handler(async () => {
   const userId = await currentUserId();
-  return ok({ plan: getPlan(userId) });
+  return ok(getEntitlement(userId));
 });

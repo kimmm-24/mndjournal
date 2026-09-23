@@ -6,10 +6,12 @@ import {
   type AiAccessStatus,
   type Plan,
 } from "@/lib/ai-quota";
-import { getPlan } from "./plan";
+import { getEntitlement } from "./plan";
 
 const DEFAULT_PRO_QUOTA = 100;
 const DEFAULT_ELITE_QUOTA = 300;
+/** A taste of AI during the free trial, not a full Pro month's worth. */
+const DEFAULT_TRIAL_QUOTA = 10;
 
 const envQuota = (name: string, fallback: number): number => {
   const raw = Number(process.env[name]);
@@ -37,8 +39,9 @@ export const getAiUsage = (userId: string): number =>
     .get()?.count ?? 0;
 
 export const getAiAccessStatus = (userId: string): AiAccessStatus => {
-  const plan = getPlan(userId);
-  const quota = getAiQuota(plan);
+  const { plan, status: planStatus } = getEntitlement(userId);
+  const quota =
+    planStatus === "trial" ? envQuota("TRIAL_AI_QUOTA", DEFAULT_TRIAL_QUOTA) : getAiQuota(plan);
   const used = getAiUsage(userId);
   return {
     plan,

@@ -7,7 +7,18 @@ import { getSessionCookie } from "better-auth/cookies";
  * the session itself. It gates navigation; server/api.ts's `handler` gates
  * data by verifying the session for real against the database.
  */
-const PUBLIC_PATHS = new Set(["/", "/login", "/signup", "/pricing", "/terms", "/privacy", "/contact"]);
+const PUBLIC_PATHS = new Set([
+  "/",
+  "/login",
+  "/signup",
+  "/pricing",
+  "/terms",
+  "/privacy",
+  "/contact",
+  // Midtrans's server-to-server webhook: no session cookie, authenticated by
+  // its signature inside the route instead.
+  "/api/billing/notification",
+]);
 
 export const middleware = (request: NextRequest) => {
   const { pathname } = request.nextUrl;

@@ -204,8 +204,27 @@ CREATE INDEX IF NOT EXISTS prop_audit_entity ON prop_audit(entity_type, entity_i
 CREATE TABLE IF NOT EXISTS subscriptions (
   user_id TEXT PRIMARY KEY,
   plan TEXT NOT NULL DEFAULT 'starter',
+  status TEXT NOT NULL DEFAULT 'comp',
+  ends_at TEXT,
   updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS payments (
+  order_id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  plan TEXT NOT NULL,
+  interval TEXT NOT NULL,
+  amount INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  snap_token TEXT,
+  redirect_url TEXT,
+  payment_type TEXT,
+  transaction_id TEXT,
+  period_ends_at TEXT,
+  paid_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS payments_user ON payments (user_id, created_at);
 CREATE TABLE IF NOT EXISTS ai_usage (
   user_id TEXT NOT NULL,
   month TEXT NOT NULL,

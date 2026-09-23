@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { FILTER_KEYS } from "@luxalgo/journal-core";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -19,6 +19,7 @@ import {
   Settings,
   ListChecks,
   BookmarkPlus,
+  CreditCard,
   Wallet,
   Landmark,
   Menu,
@@ -28,6 +29,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { authClient } from "@/lib/auth-client";
+import { ENTITLEMENT_CHANGED_EVENT, type Entitlement } from "@/lib/plan";
+import { useApi } from "@/lib/use-api";
 import { PrivacyToggle } from "./privacy";
 import { ThemeToggle } from "./theme";
 import { PageTransition } from "./page-transition";
@@ -50,6 +53,7 @@ const NAV = [
 const NAV_SETUP = [
   { href: "/import", label: "Import", icon: Import },
   { href: "/accounts", label: "Accounts", icon: Wallet },
+  { href: "/billing", label: "Billing", icon: CreditCard },
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
@@ -239,7 +243,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
               aria-describedby={undefined}
             >
               <div className="flex h-14 shrink-0 items-center gap-2.5 border-b px-4">
-                <Image src="/logo.png" alt="mndjournal" width={262} height={238} className="h-[18px] w-auto" />
+                <Image
+                  src="/logo.png"
+                  alt="mndjournal"
+                  width={262}
+                  height={238}
+                  className="h-[18px] w-auto"
+                />
                 <DialogPrimitive.Title className="text-sm font-semibold">
                   mndjournal
                 </DialogPrimitive.Title>
@@ -326,7 +336,63 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </div>
         {footer}
       </aside>
-      <PageTransition>{children}</PageTransition>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <PlanBanner />
+        <PageTransition>{children}</PageTransition>
+      </div>
+    </div>
+  );
+}
+
+/** Days before a paid period ends that the renewal reminder starts showing. */
+const RENEWAL_REMINDER_DAYS = 5;
+
+/**
+ * Trial countdown / renewal reminder / read-only notice above every app page.
+ * Refetches on navigation and whenever the billing page reports a payment, so
+ * it never lags behind what the server enforces.
+ */
+function PlanBanner() {
+  const pathname = usePathname();
+  const { data, refresh } = useApi<Entitlement>("/api/plan");
+  useEffect(() => {
+    window.addEventListener(ENTITLEMENT_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(ENTITLEMENT_CHANGED_EVENT, refresh);
+  }, [refresh]);
+  const firstPath = useRef(pathname);
+  useEffect(() => {
+    if (firstPath.current === pathname) return;
+    firstPath.current = pathname;
+    refresh();
+  }, [pathname, refresh]);
+
+  if (!data || pathname.startsWith("/billing")) return null;
+  const days = data.endsAt
+    ? Math.max(0, Math.ceil((Date.parse(data.endsAt) - Date.now()) / 86_400_000))
+    : null;
+  let text: string | null = null;
+  if (data.readOnly) {
+    text = data.wasTrial
+      ? "Your free trial has ended — your journal is read-only."
+      : "Your plan has ended — your journal is read-only.";
+  } else if (data.status === "trial" && days !== null) {
+    text = `Free trial: ${days} day${days === 1 ? "" : "s"} left.`;
+  } else if (data.status === "active" && days !== null && days <= RENEWAL_REMINDER_DAYS) {
+    text = `Your plan ends in ${days} day${days === 1 ? "" : "s"}.`;
+  }
+  if (!text) return null;
+  return (
+    <div
+      role="status"
+      className={cn(
+        "flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-4 py-2 text-sm",
+        data.readOnly ? "bg-loss/10 text-loss" : "bg-brand/10 text-foreground",
+      )}
+    >
+      <span>{text}</span>
+      <Link href="/billing" className="font-medium underline underline-offset-4">
+        {data.readOnly ? "Choose a plan" : data.status === "trial" ? "See plans" : "Extend"}
+      </Link>
     </div>
   );
 }

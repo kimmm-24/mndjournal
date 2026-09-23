@@ -407,18 +407,60 @@ export const propAudit = sqliteTable(
 );
 
 /**
- * One row per user, created lazily on first plan change. No row = 'starter'
- * (see server/ai-quota.ts's getPlan) — this is intentional, not a migration
- * gap: it's what makes every existing account, including the legacy migrated
- * one, default to 'starter' without a backfill. There is no payment provider
- * wired up yet, so this is changed with a direct SQL update until Midtrans
- * integration lands.
+ * One row per user. Created lazily by server/plan.ts's getEntitlement the
+ * first time a user without one is seen, as a TRIAL_DAYS 'trial' — which is
+ * also how accounts that existed before billing get their trial, starting
+ * from the first request after the upgrade. Paid Midtrans orders
+ * (server/billing.ts) turn it into 'active' with a new `endsAt`.
+ *
+ * `status` defaults to 'comp' (never expires) so rows written before this
+ * column existed — manual SQL plan grants — keep working unchanged; code
+ * paths that create rows always set it explicitly.
  */
 export const subscriptions = sqliteTable("subscriptions", {
   userId: text("user_id").primaryKey(),
-  plan: text("plan", { enum: ["starter", "pro", "elite"] }).notNull().default("starter"),
+  plan: text("plan", { enum: ["starter", "pro", "elite"] })
+    .notNull()
+    .default("starter"),
+  status: text("status", { enum: ["trial", "active", "comp"] })
+    .notNull()
+    .default("comp"),
+  /** End of the trial or paid period (ISO, UTC). Null for 'comp'. */
+  endsAt: text("ends_at"),
   updatedAt: text("updated_at").notNull(),
 });
+
+/**
+ * One row per Midtrans Snap order. The order is created 'pending' at
+ * checkout; server/billing.ts's applyPaymentStatus moves it forward from
+ * Midtrans's own status API (via the notification webhook or the billing
+ * page's verify call) and extends the subscription exactly once, on the
+ * transition to 'paid'.
+ */
+export const payments = sqliteTable(
+  "payments",
+  {
+    orderId: text("order_id").primaryKey(),
+    userId: text("user_id").notNull(),
+    plan: text("plan", { enum: ["starter", "pro", "elite"] }).notNull(),
+    interval: text("interval", { enum: ["month", "year"] }).notNull(),
+    /** Rupiah, whole number — Midtrans's gross_amount for IDR has no decimals. */
+    amount: integer("amount").notNull(),
+    status: text("status", { enum: ["pending", "paid", "failed", "expired", "refunded"] })
+      .notNull()
+      .default("pending"),
+    snapToken: text("snap_token"),
+    redirectUrl: text("redirect_url"),
+    paymentType: text("payment_type"),
+    transactionId: text("transaction_id"),
+    /** Subscription end date this payment produced, once paid. */
+    periodEndsAt: text("period_ends_at"),
+    paidAt: text("paid_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [index("payments_user").on(table.userId, table.createdAt)],
+);
 
 /**
  * Combined recap + critique + ask-journal call count per user per calendar

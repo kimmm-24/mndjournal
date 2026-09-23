@@ -120,6 +120,15 @@ const createDb = () => {
       `);
     })();
   }
+  // Billing upgrade: subscriptions predates trials and paid periods. Existing
+  // rows were manual SQL grants, so the 'comp' default keeps them non-expiring.
+  const subscriptionColumns = sqlite.pragma("table_info(subscriptions)") as { name: string }[];
+  if (!subscriptionColumns.some((column) => column.name === "status")) {
+    sqlite.exec("ALTER TABLE subscriptions ADD COLUMN status TEXT NOT NULL DEFAULT 'comp'");
+  }
+  if (!subscriptionColumns.some((column) => column.name === "ends_at")) {
+    sqlite.exec("ALTER TABLE subscriptions ADD COLUMN ends_at TEXT");
+  }
   // Materialize CSV bounds once so connection and range lookups never scan candle JSON.
   const csvColumns = sqlite.pragma("table_info(market_csv_datasets)") as { name: string }[];
   sqlite.transaction(() => {

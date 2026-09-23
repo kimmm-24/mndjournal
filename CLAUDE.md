@@ -67,15 +67,36 @@ earlier naming). It started as a fork of LuxAlgo's open-source, single-user, sel
 
 ## Subscription plans & feature gating
 
-Three plans: `starter` / `pro` / `elite`. No payment provider is wired up yet — plan changes are a
-manual SQL upsert until Midtrans (or similar) integration lands.
+Three paid plans: `starter` / `pro` / `elite`, billed as **prepaid periods** (1 month = 30 days,
+1 year = 365 days) through Midtrans Snap. No auto-renewal: Indonesian users mostly pay with QRIS,
+bank transfer and e-wallets, which can't be charged recurringly.
 
-- **`server/plan.ts`** — `getPlan(userId)`: **no row in the `subscriptions` table means `starter`**,
-  by design (this is what makes every existing account, including the legacy migrated one, default
-  correctly with zero backfill). Also holds `ACCOUNT_LIMITS` (starter 1 / pro 10 / elite unlimited)
-  and `PROP_ACCOUNT_LIMITS` (starter 0 / pro 1 / elite unlimited).
+- **`server/plan.ts`** — `getEntitlement(userId)` is the source of truth; `getPlan(userId)` is its
+  `.plan`, which every feature gate checks. A `subscriptions` row has `status` `trial` / `active` /
+  `comp` plus `ends_at`:
+  - **No row** → one is created on first read as a 14-day (`TRIAL_DAYS`) trial of Pro
+    (`TRIAL_PLAN`). This covers new signups *and* accounts that predate billing (their trial starts
+    at their first request after the upgrade), so there's no signup hook or backfill.
+  - `comp` → manually granted, never expires. It's the column default, so pre-billing manual
+    grants kept working after the migration.
+  - `trial`/`active` past `ends_at` → **expired**: `plan` becomes `starter` and `readOnly` is true.
+  Also holds `ACCOUNT_LIMITS` (starter 1 / pro 10 / elite unlimited) and `PROP_ACCOUNT_LIMITS`
+  (starter 0 / pro 1 / elite unlimited).
+- **Read-only when expired** — enforced once, in `server/api.ts`'s `handler`: every non-GET request
+  from an expired user gets 402 (`READ_ONLY_MESSAGE`). Reads and `/api/export` keep working. Only
+  billing routes opt out (`handler(fn, { allowReadOnly: true })`). New routes get this for free —
+  don't add per-route expiry checks. The shell's `PlanBanner` shows trial countdown / renewal
+  reminder / read-only notice.
+- **Billing** — `server/midtrans.ts` (Snap + status API over plain fetch; sandbox vs production is
+  only `MIDTRANS_IS_PRODUCTION` + which keys are set), `server/billing.ts` (checkout,
+  `applyPaymentStatus`, `nextPeriodEnd`), `payments` table, `/billing` page. Payment state is only
+  ever taken from Midtrans's status API, never from the webhook body or browser callbacks. A period
+  is granted exactly once, on the transition to `paid`. Webhook: `/api/billing/notification`
+  (public, signature-checked). `/api/billing/verify` settles an order from the browser — the only
+  path that works on localhost, where Midtrans can't reach the webhook. Prices come from
+  `pricing-data.ts`. Refunds mark the payment `refunded` but don't shorten access (manual decision).
 - **`server/ai-quota.ts`** — AI usage quota, tracked in the `ai_usage` table per user per calendar
-  month. Starter gets 0 (no AI at all). Pro/Elite quotas are env-configurable:
+  month. Starter gets 0 (no AI at all). Quotas are env-configurable: `TRIAL_AI_QUOTA` (default 10),
   `PRO_AI_QUOTA` (default 100), `ELITE_AI_QUOTA` (default 300).
 - **Enforcement is server-side, always**, with UI hidden entirely for restricted tiers (never just
   a disabled button) — this is the standing pattern for every gated feature: account limits
@@ -84,13 +105,16 @@ manual SQL upsert until Midtrans (or similar) integration lands.
   trade replay (`components/trade-market-data.tsx`, gated via a `replayAllowed` prop), and all AI
   features (gated inside `runAi()` in `server/ai.ts` — the single choke point recap/critique/ask/
   auto-tagger all call through, so new AI features get quota enforcement for free).
-- **To change a user's plan manually** (e.g. for testing), find their id then upsert:
+- **To grant a user a plan manually** (comp / testing), find their id then upsert — set `status`
+  and `ends_at` too, or an existing trial row keeps expiring:
   ```sql
   SELECT id, email FROM user WHERE email = '...';
-  INSERT INTO subscriptions (user_id, plan, updated_at)
-  VALUES ('<id>', 'pro', datetime('now'))
-  ON CONFLICT(user_id) DO UPDATE SET plan = excluded.plan, updated_at = excluded.updated_at;
+  INSERT INTO subscriptions (user_id, plan, status, ends_at, updated_at)
+  VALUES ('<id>', 'pro', 'comp', NULL, datetime('now'))
+  ON CONFLICT(user_id) DO UPDATE SET plan = excluded.plan, status = excluded.status,
+    ends_at = excluded.ends_at, updated_at = excluded.updated_at;
   ```
+  To test expiry instead, set `status = 'active'` (or `'trial'`) with an `ends_at` in the past.
 - Pricing copy (tiers, prices, the full feature comparison table) lives in **one file**,
   `apps/web/src/lib/pricing-data.ts` — both the landing page's pricing teaser and the full
   `/pricing` comparison table read from it, so they can't drift out of sync. When a gated feature's
@@ -127,6 +151,10 @@ redirect to `/login` or get wrapped in the authenticated app's sidebar chrome:
 2. `apps/web/src/components/shell.tsx` — `PUBLIC_SHELL_BYPASS` set (skips rendering the sidebar/
    top-bar chrome around the page).
 
+Public *API* routes (no session, e.g. the Midtrans webhook `/api/billing/notification`) only need
+`PUBLIC_PATHS`, and must authenticate the caller some other way (signature check) since `handler`
+isn't used.
+
 The middleware's matcher already excludes any request for a static file (anything with a dot in
 the last path segment) — don't add per-file exclusions there, that pattern already covers new
 assets under `/public`.
@@ -138,10 +166,11 @@ assets under `/public`.
   real HTTP/session round trip (see any `tests/*.test.ts` for the exact `vi.mock(...)` pattern).
   `tests/api-auth.test.ts` is the exception — it leaves `@/server/auth` unmocked to test the real
   Better Auth flow end-to-end.
-- **Any test that creates accounts, prop accounts, or playbooks needs a seeded `subscriptions`
-  plan row**, or it'll hit the starter-tier gate (0 prop accounts, 1 account max, no playbooks).
-  Seed `pro` or `elite` in `beforeEach` for that fixture user — see `tests/prop-firms.test.ts` or
-  `tests/import-account.test.ts` for the pattern.
+- **Tests that depend on a specific plan should seed a `subscriptions` row** in `beforeEach`.
+  Without one, the fixture user silently gets a Pro trial, with the trial's AI quota. Inserting
+  just `plan` works because `status` defaults to `comp` (never expires) — see
+  `tests/prop-firms.test.ts` or `tests/import-account.test.ts`. `tests/billing.test.ts` covers
+  trial/expiry/read-only and fakes Midtrans with a stubbed global `fetch`.
 - No React component-rendering tests exist in this repo (no React Testing Library dependency) —
   all tests exercise server-side route handlers/functions directly, not rendered UI.
 

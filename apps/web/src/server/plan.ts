@@ -1,16 +1,59 @@
 import { eq } from "drizzle-orm";
 import { db, subscriptions } from "@/db";
-import { isPlan, type Plan } from "@/lib/plan";
+import { isPlan, TRIAL_DAYS, TRIAL_PLAN, type Entitlement, type Plan } from "@/lib/plan";
 
-/** No row = 'starter' — every existing account, including the legacy migrated one. */
-export const getPlan = (userId: string): Plan => {
-  const plan = db
-    .select({ plan: subscriptions.plan })
-    .from(subscriptions)
-    .where(eq(subscriptions.userId, userId))
-    .get()?.plan;
-  return isPlan(plan) ? plan : "starter";
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export type SubscriptionRow = typeof subscriptions.$inferSelect;
+
+/** Pure: what a subscription row grants at `now`. */
+export const resolveEntitlement = (row: SubscriptionRow, now = new Date()): Entitlement => {
+  const lastPlan: Plan = isPlan(row.plan) ? row.plan : "starter";
+  const wasTrial = row.status === "trial";
+  if (row.status === "comp") {
+    return { plan: lastPlan, status: "comp", lastPlan, wasTrial, endsAt: null, readOnly: false };
+  }
+  const endsAt = row.endsAt;
+  if (endsAt && Date.parse(endsAt) > now.getTime()) {
+    return {
+      plan: lastPlan,
+      status: wasTrial ? "trial" : "active",
+      lastPlan,
+      wasTrial,
+      endsAt,
+      readOnly: false,
+    };
+  }
+  return { plan: "starter", status: "expired", lastPlan, wasTrial, endsAt, readOnly: true };
 };
+
+/**
+ * The user's access right now. A user with no row yet — a new signup, or an
+ * account from before billing existed — gets a TRIAL_DAYS trial of TRIAL_PLAN
+ * starting now, so no signup hook or backfill is needed.
+ */
+export const getEntitlement = (userId: string, now = new Date()): Entitlement => {
+  const read = () => db.select().from(subscriptions).where(eq(subscriptions.userId, userId)).get();
+  let row = read();
+  if (!row) {
+    db.insert(subscriptions)
+      .values({
+        userId,
+        plan: TRIAL_PLAN,
+        status: "trial",
+        endsAt: new Date(now.getTime() + TRIAL_DAYS * DAY_MS).toISOString(),
+        updatedAt: now.toISOString(),
+      })
+      // Two first requests racing: whichever insert lands first wins.
+      .onConflictDoNothing()
+      .run();
+    row = read()!;
+  }
+  return resolveEntitlement(row, now);
+};
+
+/** The plan feature gates check: the trial plan while trialing, 'starter' once expired. */
+export const getPlan = (userId: string): Plan => getEntitlement(userId).plan;
 
 export const ACCOUNT_LIMITS: Record<Plan, number> = {
   starter: 1,

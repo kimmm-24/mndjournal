@@ -10,28 +10,26 @@ import { Label } from "./ui/label";
 import { OptionSelect } from "./ui/option-select";
 import { providerInfo } from "@/lib/market-providers";
 import { MarketCsvSettings } from "./market-csv-settings";
+import { useT } from "./i18n";
 
 export function MarketDataSettings() {
+  const t = useT("settings").market;
   const { data, error, refresh } = useApi<{ connections: MarketConnection[] }>(
     "/api/market-data/connections",
   );
   return (
     <Card id="market-data" className="scroll-mt-24">
       <CardHeader>
-        <CardTitle>Market data</CardTitle>
+        <CardTitle>{t.title}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-sm text-muted-foreground">
-          Connect historical prices for estimated MAE/MFE and candle replay on closed trades. Vela
-          renders the charts. No data source is enabled or selected by default. Choose a connection
-          or upload your own candles. Market data connections are separate from broker sync and AI.
-        </p>
+        <p className="text-sm text-muted-foreground">{t.intro}</p>
         {error && (
           <p role="alert" className="text-sm text-destructive">
             {error}
           </p>
         )}
-        {!data && !error && <p className="text-sm text-muted-foreground">Loading connections…</p>}
+        {!data && !error && <p className="text-sm text-muted-foreground">{t.loading}</p>}
         {data?.connections
           .filter((connection) => connection.id !== "market-csv")
           .map((connection) => (
@@ -50,6 +48,7 @@ function Connection({
   connection: MarketConnection;
   refresh: () => void;
 }) {
+  const t = useT("settings").market;
   const info = providerInfo(connection.id)!;
   const defaults = () =>
     Object.fromEntries(info.fields.map((field) => [field.key, field.defaultValue ?? ""]));
@@ -73,17 +72,17 @@ function Connection({
       setMessage(
         action === "test"
           ? publicSource
-            ? "Public endpoint reachable. No API key or paid data plan is required. Candle availability depends on the pair, date range and public API limits."
-            : "Connection verified. Instrument coverage depends on your provider access."
+            ? t.testedPublic
+            : t.tested
           : action === "save"
-            ? "Credentials saved. Test the connection to verify access."
+            ? t.savedCredentials
             : action === "enable"
-              ? "Public market data enabled."
-              : "Connection removed.",
+              ? t.enabled
+              : t.removed,
       );
       refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Connection update failed.");
+      setError(cause instanceof Error ? cause.message : t.updateFailed);
     } finally {
       setBusy(false);
     }
@@ -94,25 +93,18 @@ function Connection({
         <h3 className="text-sm font-medium">{connection.name}</h3>
         <span className="text-xs text-muted-foreground">
           {managed
-            ? "Managed by server environment"
+            ? t.managed
             : connection.configured
               ? publicSource
-                ? "Enabled · no key required"
-                : "Credentials saved"
-              : "Not connected"}
+                ? t.enabledNoKey
+                : t.credentialsSaved
+              : t.notConnected}
         </span>
       </div>
       <p className="text-xs text-muted-foreground">{info.description}</p>
-      {!publicSource && (
-        <p className="text-xs text-muted-foreground">
-          Credentials are encrypted locally and used only by the server for market data. Saved
-          secrets are never returned to the browser or included in journal exports.
-        </p>
-      )}
+      {!publicSource && <p className="text-xs text-muted-foreground">{t.credentialsNote}</p>}
       {managed && !connection.configured && (
-        <p className="text-xs text-destructive">
-          Complete all required fields in the server environment.
-        </p>
+        <p className="text-xs text-destructive">{t.incompleteEnvironment}</p>
       )}
       {!managed &&
         !publicSource &&
@@ -144,8 +136,8 @@ function Connection({
                 }
                 placeholder={
                   connection.configured
-                    ? `Enter replacement ${field.label.toLowerCase()}`
-                    : `Enter ${field.label.toLowerCase()}`
+                    ? t.enterReplacement(field.label)
+                    : t.enterField(field.label)
                 }
                 autoComplete="off"
                 spellCheck={false}
@@ -160,22 +152,22 @@ function Connection({
             disabled={busy || info.fields.some((field) => !fields[field.key]?.trim())}
             onClick={() => void act("save")}
           >
-            Save credentials
+            {t.saveCredentials}
           </Button>
         )}
         {publicSource && !connection.configured && (
           <Button disabled={busy} onClick={() => void act("enable")}>
-            Enable source
+            {t.enableSource}
           </Button>
         )}
         {connection.configured && (
           <Button variant="outline" disabled={busy} onClick={() => void act("test")}>
-            Test connection
+            {t.testConnection}
           </Button>
         )}
         {connection.configured && !managed && (
           <Button variant="outline" disabled={busy} onClick={() => void act("remove")}>
-            {publicSource ? "Disable source" : "Remove credentials"}
+            {publicSource ? t.disableSource : t.removeCredentials}
           </Button>
         )}
       </div>

@@ -10,9 +10,13 @@ import { Input } from "@/components/ui/input";
 import { AuthCard } from "@/components/auth-card";
 import { GoogleMark } from "@/components/google-mark";
 import { authClient } from "@/lib/auth-client";
+import { useT } from "@/components/i18n";
+import { LanguageSwitch } from "@/components/language-switch";
+import { authErrorMessage } from "@/lib/auth-errors";
 
 export default function SignupPage() {
   const router = useRouter();
+  const t = useT("auth");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -35,7 +39,7 @@ export default function SignupPage() {
     });
     setSubmitting(false);
     if (signUpError) {
-      setError(signUpError.message ?? "Could not create account");
+      setError(authErrorMessage(signUpError, t.errors, t.signup.failed));
       return;
     }
     // No session token = email verification is required before signing in.
@@ -56,7 +60,7 @@ export default function SignupPage() {
     });
     if (signInError) {
       setGoogleSubmitting(false);
-      setError(signInError.message ?? "Could not sign up with Google");
+      setError(authErrorMessage(signInError, t.errors, t.signup.googleFailed));
     }
     // On success the client redirects to Google, so no further state update here.
   };
@@ -70,11 +74,10 @@ export default function SignupPage() {
 
   if (verifyEmail) {
     return (
-      <AuthCard title="Check your email">
+      <AuthCard title={t.signup.checkEmailTitle}>
         <p className="text-center text-sm text-muted-foreground">
-          We&apos;ve sent a verification link to{" "}
-          <span className="text-foreground">{verifyEmail}</span>. Click it to activate your account
-          and start your free trial. Check your spam folder if it doesn&apos;t arrive.
+          {t.signup.checkEmailBody} <span className="text-foreground">{verifyEmail}</span>.{" "}
+          {t.signup.checkEmailAfter}
         </p>
         <Button
           variant="outline"
@@ -83,15 +86,15 @@ export default function SignupPage() {
           onClick={() => void resend()}
         >
           {resent === "sent"
-            ? "Sent — check your inbox"
+            ? t.signup.resent
             : resent === "sending"
-              ? "Sending…"
-              : "Resend email"}
+              ? t.signup.resending
+              : t.signup.resend}
         </Button>
         <p className="text-center text-xs text-muted-foreground">
-          Already verified?{" "}
+          {t.signup.alreadyVerified}{" "}
           <Link href="/login" className="underline">
-            Sign in
+            {t.signup.signIn}
           </Link>
         </p>
       </AuthCard>
@@ -99,7 +102,10 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
+    <div className="relative flex min-h-screen items-center justify-center">
+      <div className="absolute right-4 top-4">
+        <LanguageSwitch compact />
+      </div>
       <Card className="w-80">
         <CardContent className="pt-6">
           <form onSubmit={submit} className="space-y-3">
@@ -111,13 +117,13 @@ export default function SignupPage() {
                 height={238}
                 className="mx-auto mb-2 h-7 w-auto"
               />
-              <h1 className="text-sm font-semibold">Create your account</h1>
+              <h1 className="text-sm font-semibold">{t.signup.title}</h1>
             </div>
             <Input
               type="text"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="Name"
+              placeholder={t.name}
               autoFocus
               autoComplete="name"
             />
@@ -125,23 +131,23 @@ export default function SignupPage() {
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              placeholder="Email"
+              placeholder={t.email}
               autoComplete="email"
             />
             <Input
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Password (min. 8 characters)"
+              placeholder={t.signup.passwordHint}
               autoComplete="new-password"
             />
             {error && <p className="text-center text-xs text-loss">{error}</p>}
             <Button type="submit" className="w-full" disabled={submitting}>
-              Sign up
+              {t.signup.submit}
             </Button>
             <div className="flex items-center gap-2">
               <div className="h-px flex-1 bg-border" />
-              <span className="text-xs text-muted-foreground">or</span>
+              <span className="text-xs text-muted-foreground">{t.or}</span>
               <div className="h-px flex-1 bg-border" />
             </div>
             <Button
@@ -152,12 +158,12 @@ export default function SignupPage() {
               onClick={signUpWithGoogle}
             >
               <GoogleMark className="h-4 w-4" />
-              Continue with Google
+              {t.continueWithGoogle}
             </Button>
             <p className="text-center text-xs text-muted-foreground">
-              Already have an account?{" "}
+              {t.signup.haveAccount}{" "}
               <Link href="/login" className="underline">
-                Sign in
+                {t.signup.signIn}
               </Link>
             </p>
           </form>

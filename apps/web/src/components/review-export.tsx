@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { exportPdf, exportPng, type ReviewDocument } from "@/lib/export-review";
 import { usePrivacy } from "./privacy";
+import { useI18n, useT } from "./i18n";
+import { localizeServerError } from "@/lib/i18n/server-errors";
 interface Preview {
   url: string;
   filename: string;
@@ -19,6 +21,8 @@ export function ReviewExport({
 }) {
   const privateMode = usePrivacy();
   const concealed = privateMode && containsFinancialData;
+  const t = useT("editor").export;
+  const { locale } = useI18n();
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [files, setFiles] = useState<Preview[]>([]),
@@ -47,7 +51,7 @@ export function ReviewExport({
       setPreviewDocument(document);
       setOpen(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Export failed.");
+      setError(e instanceof Error ? localizeServerError(e.message, locale) : t.failed);
     } finally {
       setBusy(false);
     }
@@ -63,7 +67,7 @@ export function ReviewExport({
           onClick={() => void run(false)}
         >
           <Download />
-          Export PDF
+          {t.pdf}
         </Button>
         <Button
           type="button"
@@ -73,14 +77,10 @@ export function ReviewExport({
           onClick={() => void run(true)}
         >
           <ImageIcon />
-          Export PNG
+          {t.png}
         </Button>
       </div>
-      {concealed && (
-        <p className="text-xs text-muted-foreground">
-          Turn off privacy mode to export financial figures.
-        </p>
-      )}
+      {concealed && <p className="text-xs text-muted-foreground">{t.privacy}</p>}
       {error && (
         <p role="alert" className="text-xs text-destructive">
           {error}
@@ -89,21 +89,19 @@ export function ReviewExport({
       <Dialog open={open && !concealed} onOpenChange={setOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Review export</DialogTitle>
+            <DialogTitle>{t.title}</DialogTitle>
           </DialogHeader>
           {files.map((f, i) => (
             <div key={f.url} className="space-y-3">
               <Button asChild size="sm">
                 <a href={f.url} download={f.filename}>
-                  Download {f.type === "application/pdf" ? "PDF" : "PNG"}
+                  {t.download(f.type === "application/pdf" ? "PDF" : "PNG")}
                   {files.length > 1 ? ` · ${i + 1}/${files.length}` : ""}
                 </a>
               </Button>
               {f.type === "application/pdf" ? (
                 <div className="rounded border bg-white p-6 text-slate-800">
-                  <p className="mb-4 text-xs text-slate-500">
-                    Review text · download the PDF for the paginated document.
-                  </p>
+                  <p className="mb-4 text-xs text-slate-500">{t.pdfNote}</p>
                   <h3 className="mb-2 text-xl font-semibold">{previewDocument?.title}</h3>
                   <p className="mb-6 text-xs text-slate-500">{previewDocument?.subtitle}</p>
                   <div className="whitespace-pre-wrap break-words text-sm leading-relaxed">
@@ -111,7 +109,7 @@ export function ReviewExport({
                   </div>
                 </div>
               ) : (
-                <img src={f.url} alt="Exported journal review" className="w-full rounded border" />
+                <img src={f.url} alt={t.imageAlt} className="w-full rounded border" />
               )}
             </div>
           ))}

@@ -8,16 +8,12 @@ import { Input } from "@/components/ui/input";
 import { postJson, useApi } from "@/lib/use-api";
 import { quotaExceededMessage, type AiAccessStatus } from "@/lib/ai-quota";
 import { AiNotice } from "./ai-notice";
-
-const SUGGESTIONS = [
-  "What's my most expensive mistake?",
-  "Which weekday should I stop trading?",
-  "Am I better at longs or shorts?",
-];
+import { useT } from "./i18n";
 
 /** Natural-language questions against your own aggregates — BYO AI provider key. */
 export function AskJournal() {
   const { data: aiAccess } = useApi<AiAccessStatus>("/api/ai/status");
+  const t = useT("ai").ask;
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -42,7 +38,7 @@ export function AskJournal() {
       const result = await postJson<{ answer: string }>("/api/ai/ask", { question: q });
       setAnswer(result.answer);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Request failed");
+      setError(cause instanceof Error ? cause.message : t.failed);
     } finally {
       setBusy(false);
     }
@@ -51,7 +47,7 @@ export function AskJournal() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Ask your journal</CardTitle>
+        <CardTitle>{t.title}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
         <form
@@ -62,18 +58,18 @@ export function AskJournal() {
           }}
         >
           <Input
-            aria-label="Ask your journal a question"
+            aria-label={t.label}
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
-            placeholder="Why do my Monday shorts keep failing?"
+            placeholder={t.placeholder}
           />
           <Button type="submit" disabled={busy || !question.trim() || !aiAccess.allowed}>
             <Sparkles />
-            {busy ? "Thinking…" : "Ask"}
+            {busy ? t.thinking : t.submit}
           </Button>
         </form>
         <div className="flex flex-wrap gap-1.5">
-          {SUGGESTIONS.map((suggestion) => (
+          {t.suggestions.map((suggestion) => (
             <button
               key={suggestion}
               disabled={busy || !aiAccess.allowed}

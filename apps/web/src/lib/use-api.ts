@@ -2,6 +2,7 @@
 
 import { startTransition, useCallback, useEffect, useState } from "react";
 import { acquireJson } from "./api-request";
+import { documentLocale, localizeServerError } from "./i18n/server-errors";
 
 export interface ApiState<T> {
   data: T | null;
@@ -77,6 +78,9 @@ export const postJson = async <T = unknown>(
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const data = (await response.json()) as T & { error?: string };
-  if (!response.ok) throw new Error(data.error ?? `Request failed (${response.status})`);
+  if (!response.ok)
+    throw new Error(
+      localizeServerError(data.error ?? `Request failed (${response.status})`, documentLocale()),
+    );
   return data;
 };

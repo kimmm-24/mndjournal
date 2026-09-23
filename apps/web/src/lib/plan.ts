@@ -54,3 +54,15 @@ export const ENTITLEMENT_CHANGED_EVENT = "mndjournal:entitlement-changed";
 
 export const READ_ONLY_MESSAGE =
   "Your plan has ended, so your journal is read-only. Choose a plan on the Billing page to keep journaling.";
+
+export const PLAYBOOKS_NOT_INCLUDED_MESSAGE =
+  "Playbooks are not included in your plan. Upgrade to Pro or Elite to create and use playbooks.";
+export const PROP_FIRM_NOT_INCLUDED_MESSAGE =
+  "Prop-firm tracking is not included in your plan. Upgrade to Pro or Elite to add a prop-firm account.";
+export const SYNC_IMPORT_NOT_INCLUDED_MESSAGE =
+  "Broker sync and file import aren't included in your plan. Upgrade to Pro or Elite, or add a manual account instead.";
+
+export const accountLimitMessage = (limit: number): string =>
+  `You've reached your plan's limit of ${limit} account${limit === 1 ? "" : "s"}. Upgrade to add more.`;
+export const propAccountLimitMessage = (limit: number): string =>
+  `You've reached your plan's limit of ${limit} prop-firm account${limit === 1 ? "" : "s"}. Upgrade to add more.`;

@@ -22,6 +22,7 @@ import { fmtMoney } from "@/lib/utils";
 import { usePrivacy } from "../privacy";
 import { ChartFrame } from "./chart-frame";
 import { tooltipStyle, useVizTokens } from "./tokens";
+import { useI18n, useT } from "@/components/i18n";
 
 export function TradeScatter({
   points,
@@ -40,6 +41,8 @@ export function TradeScatter({
 }) {
   const tokens = useVizTokens();
   const privateMode = usePrivacy();
+  const c = useT("charts");
+  const { dateLocale } = useI18n();
   const groups = useMemo(
     () => [
       points.filter((p) => (p.netPnl ?? 0) > 0),
@@ -49,8 +52,9 @@ export function TradeScatter({
     [points],
   );
   const date = useMemo(
-    () => new Intl.DateTimeFormat("en", { timeZone, dateStyle: "medium", timeStyle: "short" }),
-    [timeZone],
+    () =>
+      new Intl.DateTimeFormat(dateLocale, { timeZone, dateStyle: "medium", timeStyle: "short" }),
+    [timeZone, dateLocale],
   );
   const yLabel = (n: number) =>
     y === "realizedR" ? `${n.toFixed(2)}R` : privateMode ? "••••" : fmtMoney(n, currency);
@@ -66,10 +70,7 @@ export function TradeScatter({
   return (
     <ChartFrame height={340}>
       <ResponsiveContainer width="100%" height="100%">
-        <ScatterChart
-          margin={{ top: 12, right: 24, bottom: 8, left: 0 }}
-          aria-label="Individual trade outcomes. Select a point to inspect; all trades also have links in the table below."
-        >
+        <ScatterChart margin={{ top: 12, right: 24, bottom: 8, left: 0 }} aria-label={c.scatter}>
           <CartesianGrid stroke={tokens.gridline} />
           <XAxis
             type="number"
@@ -103,23 +104,23 @@ export function TradeScatter({
                   <p className="font-medium">
                     {point.symbol} · {point.direction}
                   </p>
-                  <p className="text-xs">Closed {date.format(new Date(point.closedAt))}</p>
+                  <p className="text-xs">{c.closed(date.format(new Date(point.closedAt)))}</p>
                   <p>
                     {x === "durationMinutes"
-                      ? `${point.x.toLocaleString(undefined, { maximumFractionDigits: 2 })} minutes`
+                      ? c.minutes(point.x.toLocaleString("en-US", { maximumFractionDigits: 2 }))
                       : x === "entryMinute"
-                        ? `${clockLabel(point.x)} entry`
-                        : `Estimated ${x.toUpperCase()}: ${xLabel(point.x)}`}
+                        ? c.entryAt(clockLabel(point.x))
+                        : `${c.estimated(x.toUpperCase())}: ${xLabel(point.x)}`}
                   </p>
                   <p>
                     {y === "netPnl"
-                      ? "Net P&L"
+                      ? c.netPnl
                       : y === "realizedR"
-                        ? "Realized R"
-                        : `Estimated ${y.toUpperCase()}`}
+                        ? c.realizedR
+                        : c.estimated(y.toUpperCase())}
                     : {yLabel(point.y)}
                   </p>
-                  <p className="text-xs text-muted-foreground">Select to inspect this trade</p>
+                  <p className="text-xs text-muted-foreground">{c.selectToInspect}</p>
                 </div>
               ) : null;
             }}
@@ -128,7 +129,7 @@ export function TradeScatter({
             <Scatter
               key={index}
               data={data}
-              name={["Positive net P&L", "Negative net P&L", "Zero net P&L"][index]}
+              name={c.series[index]}
               shape="circle"
               fill={[tokens.profitFill, tokens.loss, tokens.inkMuted][index]}
               fillOpacity={0.7}

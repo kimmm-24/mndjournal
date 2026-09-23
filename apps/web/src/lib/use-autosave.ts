@@ -1,8 +1,14 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useI18n, useT } from "@/components/i18n";
+import { localizeServerError } from "./i18n/server-errors";
+
+type SaveState = { kind: "idle" | "saving" | "saved" } | { kind: "error"; reason: string };
 /** Merge rapid edits and send one request at a time. Failed writes retain the latest fields for retry. */
 export function useAutosave(url: string, method: "PATCH" | "PUT" = "PATCH", onSaved?: () => void) {
-  const [status, setStatus] = useState("");
+  const [state, setStatus] = useState<SaveState>({ kind: "idle" });
+  const t = useT("common");
+  const { locale } = useI18n();
   const pending = useRef<Record<string, unknown>>({});
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const running = useRef<Promise<void> | null>(null);
@@ -26,13 +32,13 @@ export function useAutosave(url: string, method: "PATCH" | "PUT" = "PATCH", onSa
           const result = await response.json();
           if (!response.ok) throw new Error(result.error ?? "Save failed");
           if (mounted.current) {
-            setStatus(Object.keys(pending.current).length ? "Saving…" : "Saved");
+            setStatus({ kind: Object.keys(pending.current).length ? "saving" : "saved" });
             callback.current?.();
           }
         } catch (e) {
           pending.current = { ...body, ...pending.current };
           if (mounted.current)
-            setStatus(`Not saved: ${e instanceof Error ? e.message : "Connection failed"}`);
+            setStatus({ kind: "error", reason: e instanceof Error ? e.message : "" });
           break;
         }
       }
@@ -60,11 +66,21 @@ export function useAutosave(url: string, method: "PATCH" | "PUT" = "PATCH", onSa
   const save = useCallback(
     (body: Record<string, unknown>) => {
       pending.current = { ...pending.current, ...body };
-      setStatus("Saving…");
+      setStatus({ kind: "saving" });
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => void flush(), 500);
     },
     [flush],
   );
+  const status =
+    state.kind === "saving"
+      ? t.saving
+      : state.kind === "saved"
+        ? t.saved
+        : state.kind === "error"
+          ? t.notSaved(
+              state.reason ? localizeServerError(state.reason, locale) : t.connectionFailed,
+            )
+          : "";
   return { save, status, flush };
 }

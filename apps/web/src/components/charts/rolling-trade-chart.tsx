@@ -15,6 +15,7 @@ import { fmtMoney, fmtPercent } from "@/lib/utils";
 import { usePrivacy } from "../privacy";
 import { ChartFrame } from "./chart-frame";
 import { tooltipStyle, useVizTokens } from "./tokens";
+import { useI18n, useT } from "@/components/i18n";
 
 export function RollingTradeChart({
   data,
@@ -31,6 +32,8 @@ export function RollingTradeChart({
 }) {
   const tokens = useVizTokens();
   const privacy = usePrivacy();
+  const c = useT("charts");
+  const { dateLocale } = useI18n();
   const rate = metric === "winRate";
   const format = (value: number) =>
     rate ? fmtPercent(value, 0) : privacy ? "••••" : fmtMoney(value, currency);
@@ -41,7 +44,7 @@ export function RollingTradeChart({
         <LineChart
           data={data}
           margin={{ top: 12, right: 14, bottom: 4, left: 0 }}
-          aria-label={`${rate ? "Win rate" : "Average net P&L"} over 20-trade windows. Exact values and links follow below.`}
+          aria-label={c.rolling(rate)}
         >
           <CartesianGrid stroke={tokens.gridline} vertical={false} />
           <XAxis
@@ -76,9 +79,9 @@ export function RollingTradeChart({
             contentStyle={tooltipStyle(tokens)}
             labelFormatter={(label) => {
               const point = data.find((point) => point.sequence === Number(label));
-              return `Trade #${label}${point ? ` · ${new Intl.DateTimeFormat("en", { timeZone, month: "short", day: "numeric", year: "numeric" }).format(new Date(point.closedAt))}` : ""}`;
+              return `${c.tradeNumber(String(label))}${point ? ` · ${new Intl.DateTimeFormat(dateLocale, { timeZone, month: "short", day: "numeric", year: "numeric" }).format(new Date(point.closedAt))}` : ""}`;
             }}
-            formatter={(value) => [format(Number(value)), "Last 20 trades"]}
+            formatter={(value) => [format(Number(value)), c.last20]}
           />
           <Line
             dataKey={metric}

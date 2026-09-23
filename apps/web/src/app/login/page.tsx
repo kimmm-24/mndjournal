@@ -9,9 +9,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { GoogleMark } from "@/components/google-mark";
 import { authClient } from "@/lib/auth-client";
+import { useT } from "@/components/i18n";
+import { LanguageSwitch } from "@/components/language-switch";
+import { authErrorMessage } from "@/lib/auth-errors";
 
 export default function LoginPage() {
   const router = useRouter();
+  const t = useT("auth");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -32,11 +36,11 @@ export default function LoginPage() {
     setSubmitting(false);
     if (signInError?.code === "EMAIL_NOT_VERIFIED") {
       // Better Auth has just emailed a fresh link (sendOnSignIn).
-      setNotice(`Verify your email first — we've sent a new link to ${email}.`);
+      setNotice(t.login.verifyFirst(email));
       return;
     }
     if (signInError) {
-      setError(signInError.message ?? "Wrong email or password");
+      setError(authErrorMessage(signInError, t.errors, t.errors.INVALID_EMAIL_OR_PASSWORD!));
       return;
     }
     router.push("/dashboard");
@@ -52,13 +56,16 @@ export default function LoginPage() {
     });
     if (signInError) {
       setGoogleSubmitting(false);
-      setError(signInError.message ?? "Could not sign in with Google");
+      setError(authErrorMessage(signInError, t.errors, t.login.googleFailed));
     }
     // On success the client redirects to Google, so no further state update here.
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
+    <div className="relative flex min-h-screen items-center justify-center">
+      <div className="absolute right-4 top-4">
+        <LanguageSwitch compact />
+      </div>
       <Card className="w-80">
         <CardContent className="pt-6">
           <form onSubmit={submit} className="space-y-3">
@@ -76,7 +83,7 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              placeholder="Email"
+              placeholder={t.email}
               autoFocus
               autoComplete="email"
             />
@@ -84,7 +91,7 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Password"
+              placeholder={t.password}
               autoComplete="current-password"
             />
             <div className="text-right">
@@ -92,17 +99,17 @@ export default function LoginPage() {
                 href="/forgot-password"
                 className="text-xs text-muted-foreground underline-offset-4 hover:underline"
               >
-                Forgot password?
+                {t.login.forgotPassword}
               </Link>
             </div>
             {error && <p className="text-center text-xs text-loss">{error}</p>}
             {notice && <p className="text-center text-xs text-muted-foreground">{notice}</p>}
             <Button type="submit" className="w-full" disabled={submitting}>
-              Sign in
+              {t.login.signIn}
             </Button>
             <div className="flex items-center gap-2">
               <div className="h-px flex-1 bg-border" />
-              <span className="text-xs text-muted-foreground">or</span>
+              <span className="text-xs text-muted-foreground">{t.or}</span>
               <div className="h-px flex-1 bg-border" />
             </div>
             <Button
@@ -113,12 +120,12 @@ export default function LoginPage() {
               onClick={signInWithGoogle}
             >
               <GoogleMark className="h-4 w-4" />
-              Continue with Google
+              {t.continueWithGoogle}
             </Button>
             <p className="text-center text-xs text-muted-foreground">
-              No account yet?{" "}
+              {t.login.noAccount}{" "}
               <Link href="/signup" className="underline">
-                Sign up
+                {t.login.signUp}
               </Link>
             </p>
           </form>

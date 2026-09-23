@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { useApi } from "@/lib/use-api";
 import { fmtMoney, fmtPercent, pnlClass } from "@/lib/utils";
 import { describeFilters } from "@/lib/filter-description";
+import { useT } from "./i18n";
 
 interface OverviewData {
   buckets: Record<
@@ -24,17 +25,20 @@ interface OverviewData {
 
 // Keep the original overview's aggregations and ordering alongside the advanced reports.
 const SECTIONS = [
-  { key: "symbol", title: "By symbol" },
-  { key: "direction", title: "Long vs short" },
-  { key: "weekday", title: "By weekday" },
-  { key: "duration", title: "By holding time" },
-  { key: "tag", title: "By tag" },
-  { key: "mistake", title: "By mistake" },
-  { key: "playbook", title: "By playbook" },
+  "symbol",
+  "direction",
+  "weekday",
+  "duration",
+  "tag",
+  "mistake",
+  "playbook",
 ] as const;
 
 export function ReportOverview({ query, filters }: { query: string; filters: AnalysisFilters }) {
   const { data, error, loading } = useApi<OverviewData>(`/api/stats?${query}`);
+  const tr = useT("reports");
+  const t = tr.overview;
+  const tf = useT("filters");
   if (error)
     return (
       <p role="alert" className="text-sm text-destructive">
@@ -43,39 +47,38 @@ export function ReportOverview({ query, filters }: { query: string; filters: Ana
     );
   if (loading || !data) return <Skeleton className="h-72" />;
   if (data.currencies.length > 1)
-    return (
-      <p className="rounded-lg border p-4 text-sm">
-        These accounts use different currencies ({data.currencies.join(", ")}). Select accounts with
-        the same currency in Filters to compare monetary results.
-      </p>
-    );
+    return <p className="rounded-lg border p-4 text-sm">{t.mixed(data.currencies.join(", "))}</p>;
   const currency = data.currencies[0] ?? "USD";
   const label = (dimension: string, key: string) =>
-    dimension === "playbook" ? (data.playbooks.find((book) => book.id === key)?.name ?? key) : key;
+    dimension === "playbook"
+      ? (data.playbooks.find((book) => book.id === key)?.name ?? tr.buckets[key] ?? key)
+      : (tr.buckets[key] ?? key);
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-muted-foreground">
-          Trading overview · {data.timeZone} · {currency}
-        </p>
+        <p className="text-xs text-muted-foreground">{t.scope(data.timeZone, currency)}</p>
         <ReviewExport
           containsFinancialData
           document={{
-            title: "Trading overview",
+            title: t.title,
             subtitle: `${data.timeZone} · ${currency}`,
             lines: [
-              `Filters: ${describeFilters(filters, data.accounts, data.playbooks)}`,
+              tr.export.filters(describeFilters(filters, data.accounts, data.playbooks, false, tf)),
               "",
-              "Trade time performance (opening hour)",
-              ...data.buckets.hour.map(
-                (b) => `${b.key}:00: ${b.trades} trades | Net P&L ${fmtMoney(b.netPnl, currency)}`,
+              t.hourSection,
+              ...data.buckets.hour.map((b) =>
+                t.hourLine(b.key, b.trades, fmtMoney(b.netPnl, currency)),
               ),
               ...SECTIONS.flatMap((section) => [
                 "",
-                section.title,
-                ...data.buckets[section.key].map(
-                  (b) =>
-                    `${label(section.key, b.key)}: ${b.trades} trades | Win ${fmtPercent(b.winRate, 0)} | Net P&L ${fmtMoney(b.netPnl, currency)}`,
+                t.sections[section].title,
+                ...data.buckets[section].map((b) =>
+                  t.bucketLine(
+                    label(section, b.key),
+                    b.trades,
+                    fmtPercent(b.winRate, 0),
+                    fmtMoney(b.netPnl, currency),
+                  ),
                 ),
               ]),
             ],
@@ -85,40 +88,38 @@ export function ReportOverview({ query, filters }: { query: string; filters: Ana
       <div className="grid gap-3 lg:grid-cols-2">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Trade time performance</CardTitle>
+            <CardTitle>{t.timePerformance}</CardTitle>
           </CardHeader>
           <CardContent>
             <TimeHeatmap hours={data.buckets.hour} currency={currency} />
           </CardContent>
         </Card>
         {SECTIONS.map((section) => (
-          <Card key={section.key}>
+          <Card key={section}>
             <CardHeader>
-              <CardTitle>{section.title}</CardTitle>
+              <CardTitle>{t.sections[section].title}</CardTitle>
             </CardHeader>
             <CardContent>
-              {data.buckets[section.key].length === 0 ? (
+              {data.buckets[section].length === 0 ? (
                 <p className="py-8 text-center text-sm text-muted-foreground">
-                  {section.key === "tag" || section.key === "mistake" || section.key === "playbook"
-                    ? "Annotate trades to unlock this breakdown."
-                    : "No data yet."}
+                  {section === "tag" || section === "mistake" || section === "playbook"
+                    ? t.annotate
+                    : t.noData}
                 </p>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{section.title.replace("By ", "")}</TableHead>
-                      <TableHead className="text-right">Trades</TableHead>
-                      <TableHead className="text-right">Win %</TableHead>
-                      <TableHead className="text-right">Net P&L</TableHead>
+                      <TableHead>{t.sections[section].column}</TableHead>
+                      <TableHead className="text-right">{tr.columns.trades}</TableHead>
+                      <TableHead className="text-right">{tr.columns.win}</TableHead>
+                      <TableHead className="text-right">{tr.columns.netPnl}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {data.buckets[section.key].map((bucket) => (
+                    {data.buckets[section].map((bucket) => (
                       <TableRow key={bucket.key}>
-                        <TableCell className="font-medium">
-                          {label(section.key, bucket.key)}
-                        </TableCell>
+                        <TableCell className="font-medium">{label(section, bucket.key)}</TableCell>
                         <TableCell className="tnum text-right text-muted-foreground">
                           {bucket.trades}
                         </TableCell>
@@ -137,12 +138,7 @@ export function ReportOverview({ query, filters }: { query: string; filters: Ana
           </Card>
         ))}
       </div>
-      <p className="text-xs leading-relaxed text-muted-foreground">
-        Weekday and hour use trade opening times. Overview trade counts include open positions; win
-        rates use closed trades. Holding time requires a closed trade. Tags and mistakes can
-        overlap. By symbol shows the top 20 by net P&L; Breakdowns includes every symbol and
-        additional metrics for closed trades.
-      </p>
+      <p className="text-xs leading-relaxed text-muted-foreground">{t.footnote}</p>
     </div>
   );
 }

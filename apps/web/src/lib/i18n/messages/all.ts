@@ -1,0 +1,23 @@
+/** Every namespace. Register a new one here — lib/i18n/index.ts and the catalog test pick it up. */
+export { accounts } from "./accounts";
+export { ai } from "./ai";
+export { auth } from "./auth";
+export { billing } from "./billing";
+export { calendar } from "./calendar";
+export { charts } from "./charts";
+export { common } from "./common";
+export { dashboard } from "./dashboard";
+export { editor } from "./editor";
+export { entry } from "./entry";
+export { filters } from "./filters";
+export { importer } from "./importer";
+export { journal } from "./journal";
+export { layout } from "./layout";
+export { market } from "./market";
+export { prop } from "./prop";
+export { reports } from "./reports";
+export { settings } from "./settings";
+export { shell } from "./shell";
+export { trade } from "./trade";
+export { trades } from "./trades";
+export { workspace } from "./workspace";

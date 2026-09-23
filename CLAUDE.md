@@ -65,6 +65,35 @@ earlier naming). It started as a fork of LuxAlgo's open-source, single-user, sel
   `pnpm build` (multiple build workers racing to migrate the same file). Don't revert this to an
   eager singleton.
 
+## Language (Indonesian + English)
+
+- **The app UI is bilingual; Indonesian is the default.** The user's choice is stored in the
+  `mnd-locale` cookie (per device), not the database. `app/layout.tsx` reads it, so the first
+  render is already in the right language; this makes every page render per request. Users switch
+  in Settings → Bahasa, or with the ID/EN toggle on the sign-in pages. The marketing site and
+  legal pages are Indonesian-only; the auth emails are always bilingual.
+- **Text lives in `lib/i18n/messages/<namespace>.ts`**, one file per area, each defined with
+  `defineMessages({ en, id })`. The type system makes `id` match `en` exactly, including function
+  parameters, so a missing translation fails the typecheck; `tests/i18n.test.ts` checks the same
+  at runtime. Register new namespaces in `lib/i18n/messages/all.ts`. Components read text with
+  `const t = useT("namespace")` from `components/i18n.tsx`, and dates with
+  `useI18n().dateLocale`.
+- **Never hard-code user-visible strings in components**: add them to both languages.
+- **Keep standard trading terms in English** in Indonesian text (win rate, profit factor,
+  drawdown, P&L, long/short, stop loss, playbook, setup, R) — that's how local traders talk.
+- **Numbers and money keep en-US formatting in both languages** (decimal point), because forex
+  prices like 1.10500 must not become ambiguous. Only dates follow the language.
+- **Values stored in English** (routine stages, system folder names, prop enums, report bucket keys
+  like "Untagged") stay English in the database and are translated only for display, via lookup
+  maps in the messages (`stages`, `systemFolders`, `labels`, `buckets`).
+- **Server messages stay English.** API errors, sync errors and import warnings are translated in
+  the browser by `lib/i18n/server-errors.ts`. `postJson` and `acquireJson` already call it; call
+  `localizeServerError()` yourself anywhere else a server message is shown. When adding a
+  user-facing server message, add its Indonesian there, keyed on the shared constant where one
+  exists. Unknown messages pass through in English.
+- **AI replies follow the language:** `server/ai.ts`'s `replyLanguage()` reads the cookie and the
+  system prompt asks for Indonesian or English.
+
 ## Broker sync & MetaTrader
 
 - **`server/sync.ts`** handles every broker-connected (`kind: "sync"`) account. SDK brokers go

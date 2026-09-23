@@ -1,6 +1,7 @@
 "use client";
 
 import { useVizTokens } from "./tokens";
+import { useT } from "@/components/i18n";
 
 /**
  * Semicircle gauge for a 0-1 ratio (win rate, day win rate). The value is
@@ -16,6 +17,7 @@ export function Gauge({
   size?: number;
 }) {
   const t = useVizTokens();
+  const c = useT("charts");
   const radius = size / 2 - 6;
   const circumference = Math.PI * radius;
   const ratio = value === null ? 0 : Math.min(Math.max(value, 0), 1);
@@ -24,7 +26,7 @@ export function Gauge({
     <div
       className="journal-gauge flex min-w-0 flex-col items-center"
       role="img"
-      aria-label={`${label}: ${value === null ? "no data" : `${(ratio * 100).toFixed(1)}%`}`}
+      aria-label={`${label}: ${value === null ? c.noData : `${(ratio * 100).toFixed(1)}%`}`}
     >
       <svg width={size} height={size / 2 + 8} viewBox={`0 0 ${size} ${size / 2 + 8}`}>
         <path

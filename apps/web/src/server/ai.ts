@@ -4,6 +4,8 @@ import { APICallError, RetryError, generateText } from "ai";
 import { getAiKey, getAiModel, getAiProvider } from "./settings";
 import { assertAiAccess, recordAiUsage } from "./ai-quota";
 import { AI_PROVIDER_NAMES } from "@/lib/ai-settings";
+import { headers } from "next/headers";
+import { localeFromCookie } from "@/lib/i18n";
 
 /**
  * BYO-key AI. Self-hosted means YOUR key on YOUR box: the key is read from the
@@ -19,6 +21,20 @@ statement in those numbers; never invent trades, prices, or market context you w
 Be direct and specific like a good trading coach: name the behavior, cite the numbers,
 say what to keep and what to fix. No platitudes, no disclaimers about trading being risky —
 the trader knows. Keep it tight.`;
+
+/**
+ * The language AI text should be written in: the one the user is reading the
+ * app in (the locale cookie on the current request). Outside a request —
+ * or if reading it fails — the app default applies.
+ */
+export const replyLanguage = async (): Promise<"Indonesian" | "English"> => {
+  try {
+    const cookie = (await headers()).get("cookie");
+    return localeFromCookie(cookie) === "en" ? "English" : "Indonesian";
+  } catch {
+    return "Indonesian";
+  }
+};
 
 export const runAi = async (
   prompt: string,
@@ -44,7 +60,8 @@ export const runAi = async (
           ? createOpenAI({ apiKey }).responses(model)
           : createAnthropic({ apiKey })(model),
       ...(provider === "openai" ? { providerOptions: { openai: { store: false } } } : {}),
-      system: SYSTEM,
+      system: `${SYSTEM}
+Write your entire answer in ${await replyLanguage()}. Keep standard trading terms (win rate, profit factor, drawdown, P&L, R-multiple, long/short, stop loss, setup) in English, as traders use them.`,
       prompt,
       maxOutputTokens,
     });

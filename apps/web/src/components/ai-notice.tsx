@@ -5,6 +5,8 @@ import { useId } from "react";
 import { ArrowUpRight, CircleAlert, Sparkles, X } from "lucide-react";
 import { aiFeedback } from "@/lib/ai-feedback";
 import { Button } from "./ui/button";
+import { useI18n, useT } from "./i18n";
+import { localizeServerError } from "@/lib/i18n/server-errors";
 
 export function AiNotice({
   error,
@@ -15,7 +17,10 @@ export function AiNotice({
   onRetry: () => void;
   onDismiss: () => void;
 }) {
-  const feedback = aiFeedback(error);
+  const t = useT("ai");
+  const { locale } = useI18n();
+  // Messages built in the browser (the quota notice) arrive in English; translate first.
+  const feedback = aiFeedback(localizeServerError(error, locale), t);
   const id = useId();
   const Icon = feedback.tone === "error" ? CircleAlert : Sparkles;
   return (
@@ -57,7 +62,7 @@ export function AiNotice({
             className="mt-3 h-8 text-xs"
             onClick={onRetry}
           >
-            Try again
+            {t.tryAgain}
           </Button>
         ) : null}
       </div>
@@ -66,7 +71,7 @@ export function AiNotice({
         variant="ghost"
         size="icon"
         className="-mr-1 -mt-1 h-7 w-7 shrink-0 text-muted-foreground"
-        aria-label="Dismiss AI notice"
+        aria-label={t.dismiss}
         onClick={onDismiss}
       >
         <X className="h-3.5 w-3.5" />

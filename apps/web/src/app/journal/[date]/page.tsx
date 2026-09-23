@@ -21,6 +21,7 @@ import { useAutosave } from "@/lib/use-autosave";
 import { postJson, useApi } from "@/lib/use-api";
 import { fmtMoney, fmtNumber, fmtPercent } from "@/lib/utils";
 import { quotaExceededMessage, type AiAccessStatus } from "@/lib/ai-quota";
+import { useT } from "@/components/i18n";
 
 interface TradeRowLite {
   key: string;
@@ -55,6 +56,7 @@ function JournalDay({ date }: { date: string }) {
   const { query } = useFilters();
   const { data, error } = useApi<DayPayload>(`/api/journal/${date}?${query}`);
   const { data: aiAccess } = useApi<AiAccessStatus>("/api/ai/status");
+  const t = useT("journal").day;
   const [note, setNote] = useState<string | null>(null);
   const noteEditor = useRef<RichEditorHandle>(null);
   const { save, status: saving, flush } = useAutosave(`/api/journal/${date}`, "PUT");
@@ -80,7 +82,7 @@ function JournalDay({ date }: { date: string }) {
       const merged = noteValue ? `${noteValue}\n\n---\n\n${result.recap}` : result.recap;
       scheduleSave(merged);
     } catch (error) {
-      setAiError(error instanceof Error ? error.message : "AI recap failed");
+      setAiError(error instanceof Error ? error.message : t.recapFailed);
     } finally {
       setAiBusy(false);
     }
@@ -89,37 +91,37 @@ function JournalDay({ date }: { date: string }) {
   const m = data?.metrics;
   return (
     <div>
-      <FilterBar title={`Journal · ${date}`} />
+      <FilterBar title={t.title(date)} />
       <div className="grid gap-3 p-4 xl:grid-cols-3">
         <div className="min-w-0 space-y-3 xl:col-span-2">
           {m && m.closedTrades > 0 ? (
             <Card>
               <CardHeader>
-                <CardTitle>Day stats</CardTitle>
+                <CardTitle>{t.stats}</CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-3 2xl:grid-cols-5">
-                <Stat label="Net P&L">
+                <Stat label={t.netPnl}>
                   <Pnl value={m.netPnl} className="font-semibold" />
                 </Stat>
-                <Stat label="Trades">{m.closedTrades}</Stat>
-                <Stat label="Winrate">{fmtPercent(m.winRate)}</Stat>
-                <Stat label="Winners">{m.wins}</Stat>
-                <Stat label="Losers">{m.losses}</Stat>
-                <Stat label="Gross">
+                <Stat label={t.trades}>{m.closedTrades}</Stat>
+                <Stat label={t.winrate}>{fmtPercent(m.winRate)}</Stat>
+                <Stat label={t.winners}>{m.wins}</Stat>
+                <Stat label={t.losers}>{m.losses}</Stat>
+                <Stat label={t.gross}>
                   <MonetaryValue>{fmtMoney(m.grossPnl)}</MonetaryValue>
                 </Stat>
-                <Stat label="Fees">
+                <Stat label={t.fees}>
                   <MonetaryValue>{fmtMoney(m.fees)}</MonetaryValue>
                 </Stat>
-                <Stat label="Volume">{fmtNumber(m.totalVolume, 0)}</Stat>
-                <Stat label="Profit factor">
+                <Stat label={t.volume}>{fmtNumber(m.totalVolume, 0)}</Stat>
+                <Stat label={t.profitFactor}>
                   {m.profitFactorIsInfinite
                     ? "∞"
                     : m.profitFactor === null
                       ? "–"
                       : fmtNumber(m.profitFactor)}
                 </Stat>
-                <Stat label="Expectancy">
+                <Stat label={t.expectancy}>
                   <MonetaryValue>
                     {m.expectancy === null ? "–" : fmtMoney(m.expectancy)}
                   </MonetaryValue>
@@ -130,7 +132,7 @@ function JournalDay({ date }: { date: string }) {
             m && (
               <Card>
                 <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                  No closed trades this day.
+                  {t.noClosed}
                 </CardContent>
               </Card>
             )
@@ -139,7 +141,7 @@ function JournalDay({ date }: { date: string }) {
           {data && data.intraday.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Intraday cumulative net P&L</CardTitle>
+                <CardTitle>{t.intraday}</CardTitle>
               </CardHeader>
               <CardContent>
                 <EquityArea
@@ -156,7 +158,7 @@ function JournalDay({ date }: { date: string }) {
           {data && data.trades.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Trades</CardTitle>
+                <CardTitle>{t.tradesTitle}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-1">
                 {data.trades.map((trade) => (
@@ -203,7 +205,7 @@ function JournalDay({ date }: { date: string }) {
 
         <Card className="h-fit">
           <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
-            <CardTitle>Day note</CardTitle>
+            <CardTitle>{t.dayNote}</CardTitle>
             <div className="flex items-center gap-2">
               <VoiceNote
                 onPrepare={() => noteEditor.current?.focus()}
@@ -221,7 +223,7 @@ function JournalDay({ date }: { date: string }) {
                   disabled={aiBusy || !data || !aiAccess.allowed}
                 >
                   <Sparkles />
-                  {aiBusy ? "Writing…" : "AI recap"}
+                  {aiBusy ? t.writing : t.aiRecap}
                 </Button>
               )}
             </div>
@@ -251,16 +253,16 @@ function JournalDay({ date }: { date: string }) {
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span role="status">{saving}</span>
               <Button variant="ghost" size="sm" onClick={() => void flush()}>
-                Save now
+                {t.saveNow}
               </Button>
             </div>
             <ReviewExport
               containsFinancialData
               document={{
-                title: `Daily review · ${date}`,
-                subtitle: query ? `Filters: ${query}` : "All accounts",
+                title: t.review.title(date),
+                subtitle: query ? t.review.filters(query) : t.review.allAccounts,
                 lines: [
-                  `Closed trades: ${m?.closedTrades ?? 0} | Net P&L: ${m?.netPnl.toFixed(2) ?? "0.00"}`,
+                  t.review.summary(m?.closedTrades ?? 0, m?.netPnl.toFixed(2) ?? "0.00"),
                   "",
                   noteValue,
                 ],

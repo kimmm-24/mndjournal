@@ -7,6 +7,7 @@ import { AuthCard } from "@/components/auth-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
+import { useT } from "@/components/i18n";
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -23,6 +24,7 @@ export default function ResetPasswordPage() {
  * checks the token and redirects here with ?token=… (or ?error=INVALID_TOKEN).
  */
 function ResetPassword() {
+  const t = useT("auth").reset;
   const search = useSearchParams();
   const token = search.get("token");
   const [password, setPassword] = useState("");
@@ -33,13 +35,10 @@ function ResetPassword() {
 
   if (!token || search.get("error")) {
     return (
-      <AuthCard title="Link expired">
-        <p className="text-center text-sm text-muted-foreground">
-          This password reset link is invalid or has expired. Reset links work once and are valid
-          for 1 hour.
-        </p>
+      <AuthCard title={t.expiredTitle}>
+        <p className="text-center text-sm text-muted-foreground">{t.expiredBody}</p>
         <Button asChild className="w-full">
-          <Link href="/forgot-password">Send a new link</Link>
+          <Link href="/forgot-password">{t.sendNewLink}</Link>
         </Button>
       </AuthCard>
     );
@@ -47,12 +46,10 @@ function ResetPassword() {
 
   if (done) {
     return (
-      <AuthCard title="Password updated">
-        <p className="text-center text-sm text-muted-foreground">
-          Your password has been changed and you&apos;ve been signed out on all devices.
-        </p>
+      <AuthCard title={t.doneTitle}>
+        <p className="text-center text-sm text-muted-foreground">{t.doneBody}</p>
         <Button asChild className="w-full">
-          <Link href="/login">Sign in</Link>
+          <Link href="/login">{t.signIn}</Link>
         </Button>
       </AuthCard>
     );
@@ -61,11 +58,11 @@ function ResetPassword() {
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (password.length < MIN_PASSWORD_LENGTH) {
-      setError(`Use at least ${MIN_PASSWORD_LENGTH} characters.`);
+      setError(t.tooShort(MIN_PASSWORD_LENGTH));
       return;
     }
     if (password !== confirm) {
-      setError("The passwords don't match.");
+      setError(t.mismatch);
       return;
     }
     setSubmitting(true);
@@ -74,9 +71,7 @@ function ResetPassword() {
     setSubmitting(false);
     if (resetError) {
       setError(
-        resetError.code === "INVALID_TOKEN"
-          ? "This reset link has expired. Request a new one."
-          : (resetError.message ?? "Could not reset your password."),
+        resetError.code === "INVALID_TOKEN" ? t.linkExpired : (resetError.message ?? t.failed),
       );
       return;
     }
@@ -84,13 +79,13 @@ function ResetPassword() {
   };
 
   return (
-    <AuthCard title="Choose a new password">
+    <AuthCard title={t.title}>
       <form onSubmit={submit} className="space-y-3">
         <Input
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          placeholder={`New password (min. ${MIN_PASSWORD_LENGTH} characters)`}
+          placeholder={t.newPassword(MIN_PASSWORD_LENGTH)}
           autoFocus
           autoComplete="new-password"
         />
@@ -98,12 +93,12 @@ function ResetPassword() {
           type="password"
           value={confirm}
           onChange={(event) => setConfirm(event.target.value)}
-          placeholder="Confirm new password"
+          placeholder={t.confirm}
           autoComplete="new-password"
         />
         {error && <p className="text-center text-xs text-loss">{error}</p>}
         <Button type="submit" className="w-full" disabled={submitting}>
-          {submitting ? "Saving…" : "Set new password"}
+          {submitting ? t.submitting : t.submit}
         </Button>
       </form>
     </AuthCard>

@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { fmtMoney } from "@/lib/utils";
 import { usePrivacy } from "./privacy";
 import { EquityArea } from "./charts/equity-area";
+import { useT } from "./i18n";
 
 export interface ChartExecution {
   side: "buy" | "sell";
@@ -48,6 +49,7 @@ export function TradeChart(props: {
   height?: number;
 }) {
   const privateMode = usePrivacy();
+  const t = useT("market").chart;
   if (!privateMode) return <PriceChart {...props} />;
   const data = [...props.executions]
     .sort((a, b) => a.executedAt.localeCompare(b.executedAt))
@@ -57,21 +59,18 @@ export function TradeChart(props: {
     }));
   return (
     <figure className="rounded-lg border bg-card p-4">
-      <p className="mb-2 text-sm font-medium">Execution price change (%)</p>
+      <p className="mb-2 text-sm font-medium">{t.priceChange}</p>
       {props.trade.avgEntry !== 0 && data.length ? (
         <EquityArea
           data={data}
           height={props.height ?? 340}
           valueFormat="percent"
-          valueLabel="Price change from average entry"
+          valueLabel={t.fromEntry}
         />
       ) : (
-        <p className="text-sm text-muted-foreground">No execution prices available.</p>
+        <p className="text-sm text-muted-foreground">{t.noPrices}</p>
       )}
-      <figcaption className="mt-2 text-xs text-muted-foreground">
-        Recorded fills as a percentage of average entry. Privacy mode keeps prices and monetary P&L
-        hidden.
-      </figcaption>
+      <figcaption className="mt-2 text-xs text-muted-foreground">{t.privacyCaption}</figcaption>
     </figure>
   );
 }
@@ -86,6 +85,9 @@ function PriceChart({
   height?: number;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const t = useT("market").chart;
+  const tradeTitle = useRef(t.trade);
+  tradeTitle.current = t.trade;
 
   useEffect(() => {
     const host = hostRef.current;
@@ -118,7 +120,7 @@ function PriceChart({
       const type = `journal-trade-${trade.key.replace(/[^a-zA-Z0-9]/g, "-")}`;
       registerNativeIndicator({
         type,
-        title: "Trade",
+        title: tradeTitle.current,
         shortTitle: trade.symbol,
         paneHint: "price",
         overlay: true,
@@ -253,10 +255,7 @@ function PriceChart({
   return (
     <figure>
       <div ref={hostRef} style={{ height }} className="overflow-hidden rounded-lg border" />
-      <figcaption className="mt-1.5 px-1 text-xs text-muted-foreground">
-        Price path from recorded fills. To view market candles, choose a data source and load
-        history in Market data &amp; replay.
-      </figcaption>
+      <figcaption className="mt-1.5 px-1 text-xs text-muted-foreground">{t.caption}</figcaption>
     </figure>
   );
 }

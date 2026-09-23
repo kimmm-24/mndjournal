@@ -1,3 +1,5 @@
+import { messagesFor, type Messages } from "./i18n";
+
 export interface AiFeedback {
   title: string;
   description: string;
@@ -6,26 +8,33 @@ export interface AiFeedback {
   retry?: boolean;
 }
 
-/** Friendly, bounded copy: never echo provider payloads or credentials into the UI. */
-export function aiFeedback(message: string): AiFeedback {
+/**
+ * Friendly, bounded copy: never echo provider payloads or credentials into the UI.
+ * `message` may arrive in English (server text) or already translated to
+ * Indonesian (lib/i18n/server-errors.ts), so each case matches both.
+ */
+export function aiFeedback(
+  message: string,
+  t: Messages<"ai"> = messagesFor("ai", "en"),
+): AiFeedback {
+  const f = t.feedback;
   if (/AI is not configured/i.test(message))
     return {
-      title: "Set up AI to continue",
-      description:
-        "Connect an Anthropic or OpenAI API key in Settings to ask questions, generate recaps, and review trades.",
+      title: f.notConfigured.title,
+      description: f.notConfigured.description,
       tone: "info",
-      action: { label: "Set up AI", href: "/settings#ai-settings" },
+      action: { label: f.notConfigured.action, href: "/settings#ai-settings" },
     };
-  if (/not included in your plan/i.test(message))
+  if (/not included in your plan|tidak termasuk dalam paket/i.test(message))
     return {
-      title: "Upgrade to use AI features",
+      title: f.notIncluded.title,
       description: message,
       tone: "info",
-      action: { label: "See plans", href: "/pricing" },
+      action: { label: f.notIncluded.action, href: "/billing" },
     };
-  if (/AI quota for this month is used up/i.test(message))
+  if (/AI quota for this month is used up|Kuota AI bulan ini sudah habis/i.test(message))
     return {
-      title: "Monthly AI quota reached",
+      title: f.quota.title,
       description: message,
       tone: "info",
     };
@@ -35,76 +44,72 @@ export function aiFeedback(message: string): AiFeedback {
     )
   )
     return {
-      title: "Check your AI connection",
-      description:
-        "Your AI provider couldn’t verify your key or permissions. Review them in Settings, then try again.",
+      title: f.auth.title,
+      description: f.auth.description,
       tone: "error",
-      action: { label: "Review AI settings", href: "/settings#ai-settings" },
+      action: { label: f.auth.action, href: "/settings#ai-settings" },
     };
   if (
-    /credit balance|billing|insufficient.*(?:credit|quota)|exceeded your current quota/i.test(
+    /credit balance|billing|insufficient.*(?:credit|quota)|exceeded your current quota|Tagihan AI/i.test(
       message,
     )
   )
     return {
-      title: "Your AI account needs attention",
-      description:
-        "Check the billing, credit balance, or quota on your AI provider account, then try again.",
+      title: f.billing.title,
+      description: f.billing.description,
       tone: "info",
     };
   if (/model unavailable|model_not_found/i.test(message))
     return {
-      title: "Check your AI model",
-      description: "Check the model ID and your provider account’s access in Settings.",
+      title: f.model.title,
+      description: f.model.description,
       tone: "error",
-      action: { label: "Review AI settings", href: "/settings#ai-settings" },
+      action: { label: f.model.action, href: "/settings#ai-settings" },
     };
-  if (/rate.limit|too many requests|overloaded/i.test(message))
+  if (/rate.limit|too many requests|overloaded|Batas penggunaan AI/i.test(message))
     return {
-      title: "AI is temporarily busy",
-      description: "Please wait a moment before trying again. Your journal data hasn’t changed.",
+      title: f.busy.title,
+      description: f.busy.description,
       tone: "info",
       retry: true,
     };
-  if (/don't have any playbooks yet/i.test(message))
+  if (/don't have any playbooks yet|belum punya playbook/i.test(message))
     return {
-      title: "Create a playbook first",
-      description: "A playbook suggestion needs at least one playbook to match against.",
+      title: f.noPlaybooks.title,
+      description: f.noPlaybooks.description,
       tone: "info",
-      action: { label: "Create a playbook", href: "/playbooks" },
+      action: { label: f.noPlaybooks.action, href: "/playbooks" },
     };
-  if (/journal is empty/i.test(message))
+  if (/journal is empty|Jurnal masih kosong/i.test(message))
     return {
-      title: "Add trades to get started",
-      description:
-        "AI insights use your journal history. Import your trades, then ask your question again.",
+      title: f.emptyJournal.title,
+      description: f.emptyJournal.description,
       tone: "info",
-      action: { label: "Import trades", href: "/import" },
+      action: { label: f.emptyJournal.action, href: "/import" },
     };
-  if (/No closed trades on this day/i.test(message))
+  if (/No closed trades on this day|Tidak ada trade yang ditutup pada hari ini/i.test(message))
     return {
-      title: "No trades to recap yet",
-      description:
-        "A recap needs at least one closed trade on this day. You can still write your own day note.",
+      title: f.noTradesToday.title,
+      description: f.noTradesToday.description,
       tone: "info",
     };
-  if (/Unauthorized/i.test(message))
+  if (/Unauthorized|Sesi Anda telah berakhir/i.test(message))
     return {
-      title: "Please sign in again",
-      description: "Your session may have expired. Sign in to continue using your journal.",
+      title: f.signIn.title,
+      description: f.signIn.description,
       tone: "info",
-      action: { label: "Sign in", href: "/login" },
+      action: { label: f.signIn.action, href: "/login" },
     };
-  if (/failed to fetch|network|timeout|timed out|connection/i.test(message))
+  if (/failed to fetch|network|timeout|timed out|connection|koneksi/i.test(message))
     return {
-      title: "Couldn’t connect to AI",
-      description: "Check your connection and try again. Your journal data hasn’t changed.",
+      title: f.network.title,
+      description: f.network.description,
       tone: "error",
       retry: true,
     };
   return {
-    title: "Couldn’t complete the AI request",
-    description: "Please try again in a moment. If this continues, check your AI settings.",
+    title: f.generic.title,
+    description: f.generic.description,
     tone: "error",
     retry: true,
   };

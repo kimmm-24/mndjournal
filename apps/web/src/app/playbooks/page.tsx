@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { postJson, useApi } from "@/lib/use-api";
 import type { Plan } from "@/lib/plan";
+import { useT } from "@/components/i18n";
 
 interface Playbook {
   id: string;
@@ -32,6 +33,7 @@ function Playbooks() {
   const { data, refresh } = useApi<{ playbooks: Playbook[] }>("/api/playbooks");
   const { data: planData } = useApi<{ plan: Plan }>("/api/plan");
   const playbooksAllowed = planData ? planData.plan !== "starter" : false;
+  const t = useT("workspace").playbooks;
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -56,12 +58,12 @@ function Playbooks() {
   return (
     <div>
       <FilterBar
-        title="Playbooks"
+        title={t.title}
         actions={
           playbooksAllowed ? (
             <Button size="sm" onClick={() => setOpen(true)}>
               <Plus />
-              New playbook
+              {t.new}
             </Button>
           ) : undefined
         }
@@ -70,13 +72,11 @@ function Playbooks() {
         {data?.playbooks.length === 0 &&
           (playbooksAllowed ? (
             <p className="col-span-full py-16 text-center text-sm text-muted-foreground">
-              A playbook is a setup you trade on purpose — name it, write its rules, then tag trades
-              with it and let Reports tell you if it actually pays.
+              {t.intro}
             </p>
           ) : (
             <p className="col-span-full py-16 text-center text-sm text-muted-foreground">
-              Playbooks aren't included in your plan. Upgrade to Pro or Elite to create and use
-              playbooks.
+              {t.notIncluded}
             </p>
           ))}
         {data?.playbooks.map((playbook) => (
@@ -86,17 +86,15 @@ function Playbooks() {
                 {playbook.name}
               </CardTitle>
               <div className="ml-auto flex shrink-0 items-center gap-2">
-                <span className="text-xs text-muted-foreground">{playbook.tradeCount} trades</span>
+                <span className="text-xs text-muted-foreground">
+                  {t.trades(playbook.tradeCount)}
+                </span>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7 text-muted-foreground hover:text-destructive"
                   onClick={async () => {
-                    if (
-                      confirm(
-                        `Delete "${playbook.name}"? Trades keep their data, just lose the link.`,
-                      )
-                    ) {
+                    if (confirm(t.confirmDelete(playbook.name))) {
                       await postJson(`/api/playbooks/${playbook.id}`, undefined, "DELETE");
                       refresh();
                     }
@@ -129,29 +127,27 @@ function Playbooks() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New playbook</DialogTitle>
+            <DialogTitle>{t.dialogTitle}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <Input
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="Name (e.g. Opening range breakout)"
+              placeholder={t.namePlaceholder}
             />
             <Input
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder="One-line description"
+              placeholder={t.descriptionPlaceholder}
             />
             <Textarea
               value={rules}
               onChange={(event) => setRules(event.target.value)}
-              placeholder={
-                "One rule per line:\nOnly A+ setups\nRisk max 1R\nNo entries after 11:30"
-              }
+              placeholder={t.rulesPlaceholder}
               className="min-h-32"
             />
             <Button onClick={create} disabled={!name}>
-              Create
+              {t.create}
             </Button>
           </div>
         </DialogContent>

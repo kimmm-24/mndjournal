@@ -1,6 +1,6 @@
 import { asc, eq } from "drizzle-orm";
 import { db, playbooks } from "@/db";
-import { runAi } from "./ai";
+import { replyLanguage, runAi } from "./ai";
 import { getTradeByKey, rowToTrade } from "./trades-query";
 
 export interface PlaybookSuggestion {
@@ -9,7 +9,10 @@ export interface PlaybookSuggestion {
   reasoning: string;
 }
 
-const FALLBACK_NO_MATCH_REASON = "Tidak ada playbook yang cukup cocok dengan trade ini.";
+const FALLBACK_NO_MATCH_REASON = {
+  Indonesian: "Tidak ada playbook yang cukup cocok dengan trade ini.",
+  English: "No playbook fits this trade closely enough.",
+};
 
 /** AI picks the single best-fitting playbook for a trade from the user's own list. */
 export const suggestPlaybook = async (
@@ -37,6 +40,7 @@ export const suggestPlaybook = async (
     })
     .join("\n");
 
+  const language = await replyLanguage();
   const text = await runAi(
     `Match this single trade to the ONE best-fitting playbook from the trader's own playbook list
 below, based on its rules and description. If none genuinely fit, say so.
@@ -53,9 +57,9 @@ Closed: ${trade.closedAt ?? "still open"}
 Entry: ${trade.avgEntry} -> Exit: ${trade.avgExit ?? "n/a"}
 Notes: ${row.notes || "(none)"}
 
-Reply in EXACTLY this format and nothing else — REASON in Indonesian, one short sentence:
+Reply in EXACTLY this format and nothing else — REASON in ${language}, one short sentence:
 PLAYBOOK: <exact playbook name from the list above, or NONE>
-REASON: <one short sentence in Indonesian>`,
+REASON: <one short sentence in ${language}>`,
     300,
     userId,
   );
@@ -63,7 +67,7 @@ REASON: <one short sentence in Indonesian>`,
   const nameMatch = /PLAYBOOK:\s*(.+)/i.exec(text);
   const reasonMatch = /REASON:\s*(.+)/i.exec(text);
   const suggestedName = nameMatch?.[1]?.trim() ?? "";
-  const reasoning = reasonMatch?.[1]?.trim() || FALLBACK_NO_MATCH_REASON;
+  const reasoning = reasonMatch?.[1]?.trim() || FALLBACK_NO_MATCH_REASON[language];
 
   if (!suggestedName || /^none$/i.test(suggestedName)) {
     return { playbookId: null, playbookName: null, reasoning };
@@ -72,7 +76,8 @@ REASON: <one short sentence in Indonesian>`,
   const matched = userPlaybooks.find(
     (playbook) => playbook.name.trim().toLowerCase() === suggestedName.toLowerCase(),
   );
-  if (!matched) return { playbookId: null, playbookName: null, reasoning: FALLBACK_NO_MATCH_REASON };
+  if (!matched)
+    return { playbookId: null, playbookName: null, reasoning: FALLBACK_NO_MATCH_REASON[language] };
 
   return { playbookId: matched.id, playbookName: matched.name, reasoning };
 };

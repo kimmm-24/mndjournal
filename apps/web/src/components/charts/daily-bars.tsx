@@ -15,6 +15,7 @@ import { fmtMoney } from "@/lib/utils";
 import { usePrivacy } from "../privacy";
 import { tooltipStyle, useVizTokens } from "./tokens";
 import { ChartFrame } from "./chart-frame";
+import { useT } from "@/components/i18n";
 
 export interface DailyBarDatum {
   date: string;
@@ -34,6 +35,7 @@ export function DailyBars({
 }) {
   const t = useVizTokens();
   const privateMode = usePrivacy();
+  const c = useT("charts");
   if (!t) return <div style={{ height }} />;
   return (
     <ChartFrame height={height}>
@@ -64,7 +66,7 @@ export function DailyBars({
           <ReferenceLine y={0} stroke={t.baseline} />
           <Tooltip
             contentStyle={tooltipStyle(t)}
-            formatter={(value) => [privateMode ? "Hidden" : fmtMoney(Number(value)), "Net P&L"]}
+            formatter={(value) => [privateMode ? c.hidden : fmtMoney(Number(value)), c.netPnl]}
             cursor={{ fill: t.gridline, opacity: 0.4 }}
           />
           <Bar dataKey="netPnl" isAnimationActive={false} maxBarSize={28}>

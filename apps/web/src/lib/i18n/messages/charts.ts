@@ -1,0 +1,83 @@
+import { defineMessages } from "../define";
+
+/** Chart axes, tooltips, legends and screen-reader descriptions. */
+export const charts = defineMessages({
+  en: {
+    hidden: "Hidden",
+    netPnl: "Net P&L",
+    netPnlAxis: (currency: string) => `Net P&L (${currency})`,
+    netPnlAxisHidden: "Net P&L (hidden)",
+    trades: "Trades",
+    cumulativePnl: "Cumulative P&L",
+    score: "Score",
+    noData: "no data",
+    edge: {
+      winRate: "Win %",
+      profitFactor: "Profit factor",
+      avgWinLoss: "Avg win/loss",
+      drawdown: "Drawdown",
+      recovery: "Recovery",
+      consistency: "Consistency",
+    },
+    relativeDrawdown: "Relative drawdown",
+    balanceRequired: "Initial balance required",
+    max: (value: string) => `Max −${value}`,
+    setBalance: "Set an initial balance to chart relative drawdown.",
+    calendarDaily:
+      "Daily net profit and loss. Exact values and trade links are available in the table below.",
+    fiveDayAverage: "5-trading-day average",
+    dailyNetPnl: "Daily net P&L",
+    rolling: (winRate: boolean) =>
+      `${winRate ? "Win rate" : "Average net P&L"} over 20-trade windows. Exact values and links follow below.`,
+    tradeNumber: (n: string) => `Trade #${n}`,
+    last20: "Last 20 trades",
+    scatter:
+      "Individual trade outcomes. Select a point to inspect; all trades also have links in the table below.",
+    closed: (date: string) => `Closed ${date}`,
+    minutes: (n: string) => `${n} minutes`,
+    entryAt: (clock: string) => `${clock} entry`,
+    estimated: (what: string) => `Estimated ${what}`,
+    realizedR: "Realized R",
+    selectToInspect: "Select to inspect this trade",
+    series: ["Positive net P&L", "Negative net P&L", "Zero net P&L"],
+  },
+  id: {
+    hidden: "Disembunyikan",
+    netPnl: "Net P&L",
+    netPnlAxis: (currency: string) => `Net P&L (${currency})`,
+    netPnlAxisHidden: "Net P&L (disembunyikan)",
+    trades: "Trades",
+    cumulativePnl: "P&L kumulatif",
+    score: "Skor",
+    noData: "tidak ada data",
+    edge: {
+      winRate: "Win %",
+      profitFactor: "Profit factor",
+      avgWinLoss: "Rata-rata win/loss",
+      drawdown: "Drawdown",
+      recovery: "Recovery",
+      consistency: "Konsistensi",
+    },
+    relativeDrawdown: "Drawdown relatif",
+    balanceRequired: "Perlu saldo awal",
+    max: (value: string) => `Maks −${value}`,
+    setBalance: "Isi saldo awal untuk menampilkan grafik drawdown relatif.",
+    calendarDaily:
+      "Net profit dan loss harian. Nilai persis dan link trade tersedia di tabel di bawah.",
+    fiveDayAverage: "Rata-rata 5 hari trading",
+    dailyNetPnl: "Net P&L harian",
+    rolling: (winRate: boolean) =>
+      `${winRate ? "Win rate" : "Rata-rata net P&L"} per 20 trade. Nilai persis dan link tersedia di bawah.`,
+    tradeNumber: (n: string) => `Trade #${n}`,
+    last20: "20 trade terakhir",
+    scatter:
+      "Hasil setiap trade. Pilih titik untuk melihat detail; semua trade juga punya link di tabel di bawah.",
+    closed: (date: string) => `Ditutup ${date}`,
+    minutes: (n: string) => `${n} menit`,
+    entryAt: (clock: string) => `entry ${clock}`,
+    estimated: (what: string) => `Estimasi ${what}`,
+    realizedR: "Realized R",
+    selectToInspect: "Pilih untuk melihat trade ini",
+    series: ["Net P&L positif", "Net P&L negatif", "Net P&L nol"],
+  },
+});

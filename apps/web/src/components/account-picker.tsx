@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { postJson, useApi } from "@/lib/use-api";
+import { useT } from "./i18n";
 
 interface AccountRow {
   id: string;
@@ -35,6 +36,7 @@ export function AccountPicker({
     refresh,
     error: accountError,
   } = useApi<{ accounts: AccountRow[] }>("/api/accounts");
+  const t = useT("entry").picker;
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [currency, setCurrency] = useState("USD");
@@ -76,7 +78,7 @@ export function AccountPicker({
       setName("");
       setBalance("0");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Account creation failed.");
+      setError(cause instanceof Error ? cause.message : t.failed);
     } finally {
       setSaving(false);
     }
@@ -85,11 +87,11 @@ export function AccountPicker({
     <div className="flex min-w-0 flex-wrap items-end gap-2">
       <div className="min-w-0 flex-[1_1_180px]">
         <Label htmlFor={`${fieldId}-account`} className="mb-1 block text-xs text-muted-foreground">
-          Into account
+          {t.intoAccount}
         </Label>
         <Select value={value} onValueChange={onChange}>
           <SelectTrigger id={`${fieldId}-account`}>
-            <SelectValue placeholder="Choose an account" />
+            <SelectValue placeholder={t.choose} />
           </SelectTrigger>
           <SelectContent>
             {accounts.map((account) => (
@@ -110,7 +112,7 @@ export function AccountPicker({
         }}
         disabled={saving}
       >
-        {creating ? "Cancel new account" : "New account"}
+        {creating ? t.cancelNew : t.newAccount}
       </Button>
       {accountError && (
         <p role="alert" className="w-full text-sm text-destructive">
@@ -125,10 +127,10 @@ export function AccountPicker({
             if (!saving) void create();
           }}
         >
-          <h3 className="text-sm font-medium">Create account</h3>
+          <h3 className="text-sm font-medium">{t.createTitle}</h3>
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1">
-              <Label htmlFor={`${fieldId}-name`}>Account name</Label>
+              <Label htmlFor={`${fieldId}-name`}>{t.name}</Label>
               <Input
                 id={`${fieldId}-name`}
                 autoFocus
@@ -137,11 +139,11 @@ export function AccountPicker({
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 disabled={saving}
-                placeholder="Trading test account"
+                placeholder={t.namePlaceholder}
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor={`${fieldId}-currency`}>Currency</Label>
+              <Label htmlFor={`${fieldId}-currency`}>{t.currency}</Label>
               <Input
                 id={`${fieldId}-currency`}
                 required
@@ -153,7 +155,7 @@ export function AccountPicker({
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor={`${fieldId}-balance`}>Starting balance</Label>
+              <Label htmlFor={`${fieldId}-balance`}>{t.balance}</Label>
               <Input
                 id={`${fieldId}-balance`}
                 required
@@ -182,7 +184,7 @@ export function AccountPicker({
               Number(balance) < 0
             }
           >
-            {saving ? "Creating…" : "Create account"}
+            {saving ? t.creating : t.create}
           </Button>
         </form>
       )}

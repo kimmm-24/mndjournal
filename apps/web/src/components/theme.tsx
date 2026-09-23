@@ -4,13 +4,15 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { Moon, Sun } from "lucide-react";
 import { THEME_KEY, themePreference, type Theme } from "@/lib/theme";
 import { Button } from "./ui/button";
+import { useT } from "./i18n";
 
 const ThemeContext = createContext({ theme: "dark" as Theme, ready: false, toggle: () => {} });
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>("dark");
   const [ready, setReady] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(false);
+  const t = useT("shell").theme;
   const apply = (next: Theme) => {
     document.documentElement.classList.toggle("dark", next === "dark");
     setTheme(next);
@@ -22,7 +24,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const sync = (event: StorageEvent) => {
       if (event.key === THEME_KEY || event.key === null) {
         apply(themePreference(event.newValue));
-        setError("");
+        setError(false);
       }
     };
     window.addEventListener("storage", sync);
@@ -33,9 +35,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     apply(next);
     try {
       localStorage.setItem(THEME_KEY, next);
-      setError("");
+      setError(false);
     } catch {
-      setError("Appearance changed, but your browser could not save it for next time.");
+      setError(true);
     }
   };
   return (
@@ -46,7 +48,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
           role="status"
           className="fixed bottom-4 right-4 z-50 max-w-[calc(100vw-32px)] rounded-lg border bg-popover px-4 py-3 text-sm text-popover-foreground shadow-lg"
         >
-          {error}
+          {t.saveFailed}
         </p>
       )}
     </ThemeContext.Provider>
@@ -55,7 +57,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
 export function ThemeToggle({ iconOnly = false }: { iconOnly?: boolean }) {
   const { theme, ready, toggle } = useContext(ThemeContext);
-  const label = theme === "dark" ? "Switch to light mode" : "Switch to dark mode";
+  const t = useT("shell").theme;
+  const label = theme === "dark" ? t.toLight : t.toDark;
   return (
     <Button
       type="button"
@@ -72,7 +75,7 @@ export function ThemeToggle({ iconOnly = false }: { iconOnly?: boolean }) {
       title={iconOnly ? label : undefined}
     >
       {theme === "dark" ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
-      {!iconOnly && (theme === "dark" ? "Light mode" : "Dark mode")}
+      {!iconOnly && (theme === "dark" ? t.light : t.dark)}
     </Button>
   );
 }

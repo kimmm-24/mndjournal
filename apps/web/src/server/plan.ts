@@ -73,14 +73,11 @@ export const playbooksAllowed = (plan: Plan): boolean => plan !== "starter";
 export const syncImportAllowed = (plan: Plan): boolean => plan !== "starter";
 export const replayAllowed = (plan: Plan): boolean => plan !== "starter";
 
-export const PLAYBOOKS_NOT_INCLUDED_MESSAGE =
-  "Playbooks are not included in your plan. Upgrade to Pro or Elite to create and use playbooks.";
-export const PROP_FIRM_NOT_INCLUDED_MESSAGE =
-  "Prop-firm tracking is not included in your plan. Upgrade to Pro or Elite to add a prop-firm account.";
-export const SYNC_IMPORT_NOT_INCLUDED_MESSAGE =
-  "Broker sync and file import aren't included in your plan. Upgrade to Pro or Elite, or add a manual account instead.";
-
-export const accountLimitMessage = (limit: number): string =>
-  `You've reached your plan's limit of ${limit} account${limit === 1 ? "" : "s"}. Upgrade to add more.`;
-export const propAccountLimitMessage = (limit: number): string =>
-  `You've reached your plan's limit of ${limit} prop-firm account${limit === 1 ? "" : "s"}. Upgrade to add more.`;
+// The messages live in lib/plan.ts so the browser can translate them (lib/i18n/server-errors.ts).
+export {
+  accountLimitMessage,
+  PLAYBOOKS_NOT_INCLUDED_MESSAGE,
+  PROP_FIRM_NOT_INCLUDED_MESSAGE,
+  propAccountLimitMessage,
+  SYNC_IMPORT_NOT_INCLUDED_MESSAGE,
+} from "@/lib/plan";

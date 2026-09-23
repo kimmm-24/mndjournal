@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 import { Paperclip, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { postJson, useApi } from "@/lib/use-api";
+import { useI18n, useT } from "./i18n";
+import { localizeServerError } from "@/lib/i18n/server-errors";
 export function Attachments({
   type,
   id,
@@ -14,6 +16,8 @@ export function Attachments({
   const { data, error, refresh } = useApi<{
     attachments: { id: string; name: string; mime: string; size: number }[];
   }>(`/api/attachments?type=${type}&id=${encodeURIComponent(id)}`);
+  const t = useT("editor").attachments;
+  const { locale } = useI18n();
   const [busy, setBusy] = useState(false),
     [failure, setFailure] = useState("");
   const input = useRef<HTMLInputElement>(null);
@@ -28,13 +32,13 @@ export function Attachments({
           onClick={() => input.current?.click()}
         >
           <Paperclip />
-          {busy ? "Uploading…" : "Add attachment"}
+          {busy ? t.uploading : t.add}
         </Button>
-        <span className="text-xs text-muted-foreground">Images or PDF · up to 8 MB each</span>
+        <span className="text-xs text-muted-foreground">{t.limits}</span>
       </div>
       <input
         ref={input}
-        aria-label="Upload attachment"
+        aria-label={t.upload}
         type="file"
         accept="image/png,image/jpeg,image/webp,application/pdf"
         className="hidden"
@@ -51,10 +55,10 @@ export function Attachments({
               body.append("file", file);
               const r = await fetch("/api/attachments", { method: "POST", body });
               const result = await r.json();
-              if (!r.ok) throw new Error(result.error);
+              if (!r.ok) throw new Error(localizeServerError(result.error ?? t.failed, locale));
             }
           } catch (err) {
-            setFailure(err instanceof Error ? err.message : "Upload failed.");
+            setFailure(err instanceof Error ? err.message : t.failed);
           } finally {
             setBusy(false);
             if (input.current) input.current.value = "";
@@ -94,9 +98,9 @@ export function Attachments({
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6"
-                aria-label={`Remove ${a.name}`}
+                aria-label={t.remove(a.name)}
                 onClick={async () => {
-                  if (!confirm(`Remove ${a.name}?`)) return;
+                  if (!confirm(t.confirmRemove(a.name))) return;
                   try {
                     await postJson(`/api/attachments/${a.id}`, undefined, "DELETE");
                     refresh();

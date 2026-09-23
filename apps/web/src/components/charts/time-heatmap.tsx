@@ -6,6 +6,7 @@ import type { EChartsOption } from "echarts";
 import { fmtMoney, fmtNumber } from "@/lib/utils";
 import { usePrivacy } from "../privacy";
 import { useVizTokens } from "./tokens";
+import { useT } from "@/components/i18n";
 
 const EChart = dynamic(() => import("./echart").then((module) => module.EChart), { ssr: false });
 
@@ -31,6 +32,7 @@ export function TimeHeatmap({
 }) {
   const t = useVizTokens();
   const privateMode = usePrivacy();
+  const c = useT("charts");
   const host = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   useEffect(() => {
@@ -94,7 +96,7 @@ export function TimeHeatmap({
         {
           type: "value",
           gridIndex: 0,
-          name: privateMode ? "Net P&L (hidden)" : `Net P&L (${currency})`,
+          name: privateMode ? c.netPnlAxisHidden : c.netPnlAxis(currency),
           nameTextStyle: { color: t.inkMuted, fontSize: 11 },
           splitLine: { lineStyle: { color: t.gridline } },
           axisLabel: {
@@ -106,7 +108,7 @@ export function TimeHeatmap({
         {
           type: "value",
           gridIndex: 1,
-          name: "Trades",
+          name: c.trades,
           nameTextStyle: { color: t.inkMuted, fontSize: 11 },
           splitLine: { show: false },
           axisLabel: { color: t.inkMuted, fontSize: 11 },
@@ -115,9 +117,9 @@ export function TimeHeatmap({
       series: [
         {
           type: "bar",
-          name: "Net P&L",
+          name: c.netPnl,
           tooltip: {
-            valueFormatter: (value) => (privateMode ? "Hidden" : fmtMoney(Number(value), currency)),
+            valueFormatter: (value) => (privateMode ? c.hidden : fmtMoney(Number(value), currency)),
           },
           xAxisIndex: 0,
           yAxisIndex: 0,
@@ -132,7 +134,7 @@ export function TimeHeatmap({
         },
         {
           type: "line",
-          name: "Trades",
+          name: c.trades,
           tooltip: { valueFormatter: (value) => fmtNumber(Number(value), 0) },
           xAxisIndex: 1,
           yAxisIndex: 1,
@@ -143,7 +145,7 @@ export function TimeHeatmap({
         },
       ],
     };
-  }, [hours, t, privateMode, currency]);
+  }, [hours, t, privateMode, currency, c]);
 
   return (
     <div ref={host} style={{ height }}>

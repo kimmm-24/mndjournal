@@ -6,8 +6,11 @@ import { AuthCard } from "@/components/auth-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
+import { useT } from "@/components/i18n";
+import { authErrorMessage } from "@/lib/auth-errors";
 
 export default function ForgotPasswordPage() {
+  const t = useT("auth");
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -23,7 +26,7 @@ export default function ForgotPasswordPage() {
     });
     setSubmitting(false);
     if (requestError) {
-      setError(requestError.message ?? "Could not send the reset email. Try again.");
+      setError(authErrorMessage(requestError, t.errors, t.forgot.failed));
       return;
     }
     setSentTo(email);
@@ -31,16 +34,15 @@ export default function ForgotPasswordPage() {
 
   if (sentTo) {
     return (
-      <AuthCard title="Check your email">
+      <AuthCard title={t.forgot.sentTitle}>
         {/* Same wording whether or not the account exists — no account enumeration. */}
         <p className="text-center text-sm text-muted-foreground">
-          If an account exists for <span className="text-foreground">{sentTo}</span>, we&apos;ve
-          sent a link to reset your password. It&apos;s valid for 1 hour — check your spam folder if
-          it doesn&apos;t arrive.
+          {t.forgot.sentBefore} <span className="text-foreground">{sentTo}</span>,{" "}
+          {t.forgot.sentAfter}
         </p>
         <p className="text-center text-xs text-muted-foreground">
           <Link href="/login" className="underline">
-            Back to sign in
+            {t.forgot.backToSignIn}
           </Link>
         </p>
       </AuthCard>
@@ -48,27 +50,25 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <AuthCard title="Reset your password">
+    <AuthCard title={t.forgot.title}>
       <form onSubmit={submit} className="space-y-3">
-        <p className="text-center text-xs text-muted-foreground">
-          Enter your account&apos;s email and we&apos;ll send you a reset link.
-        </p>
+        <p className="text-center text-xs text-muted-foreground">{t.forgot.intro}</p>
         <Input
           type="email"
           required
           value={email}
           onChange={(event) => setEmail(event.target.value)}
-          placeholder="Email"
+          placeholder={t.email}
           autoFocus
           autoComplete="email"
         />
         {error && <p className="text-center text-xs text-loss">{error}</p>}
         <Button type="submit" className="w-full" disabled={submitting}>
-          {submitting ? "Sending…" : "Send reset link"}
+          {submitting ? t.forgot.submitting : t.forgot.submit}
         </Button>
         <p className="text-center text-xs text-muted-foreground">
           <Link href="/login" className="underline">
-            Back to sign in
+            {t.forgot.backToSignIn}
           </Link>
         </p>
       </form>

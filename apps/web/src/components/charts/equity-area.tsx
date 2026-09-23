@@ -15,6 +15,7 @@ import { fmtMoney, fmtPercent } from "@/lib/utils";
 import { usePrivacy } from "../privacy";
 import { tooltipStyle, useVizTokens } from "./tokens";
 import { ChartFrame } from "./chart-frame";
+import { useT } from "@/components/i18n";
 
 export interface EquityPointDatum {
   t: string;
@@ -26,7 +27,7 @@ export function EquityArea({
   data,
   height = 240,
   valueFormat = "money",
-  valueLabel = "Cumulative P&L",
+  valueLabel,
   currency = "USD",
   curve = "monotone",
 }: {
@@ -40,6 +41,7 @@ export function EquityArea({
   const t = useVizTokens();
   const id = useId().replace(/:/g, "");
   const privacy = usePrivacy();
+  const c = useT("charts");
   const privateMode = privacy && valueFormat === "money";
   const formatValue = (value: number) =>
     valueFormat === "percent" ? fmtPercent(value, 2) : fmtMoney(value, currency);
@@ -91,7 +93,10 @@ export function EquityArea({
           <Tooltip
             contentStyle={tooltipStyle(t)}
             labelFormatter={(value) => String(value).slice(0, 10)}
-            formatter={(value) => [privateMode ? "Hidden" : formatValue(Number(value)), valueLabel]}
+            formatter={(value) => [
+              privateMode ? c.hidden : formatValue(Number(value)),
+              valueLabel ?? c.cumulativePnl,
+            ]}
             cursor={{ stroke: t.inkMuted, strokeDasharray: "3 3" }}
           />
           <Area

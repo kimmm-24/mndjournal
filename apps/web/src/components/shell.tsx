@@ -36,25 +36,26 @@ import { ThemeToggle } from "./theme";
 import { PageTransition } from "./page-transition";
 import { Button } from "./ui/button";
 import { HoverHint } from "./ui/tooltip";
+import { useT } from "./i18n";
 
 const NAV = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/calendar", label: "Calendar", icon: CalendarDays },
-  { href: "/journal", label: "Daily journal", icon: NotebookPen },
-  { href: "/trades", label: "Trades", icon: ListOrdered },
-  { href: "/reports", label: "Reports", icon: BarChart3 },
-  { href: "/prop-firms", label: "Prop firms", icon: Landmark },
-  { href: "/notebook", label: "Notebook", icon: BookText },
-  { href: "/playbooks", label: "Playbooks", icon: BookOpen },
-  { href: "/progress", label: "Progress", icon: ListChecks },
-  { href: "/missed", label: "Missed trades", icon: BookmarkPlus },
+  { href: "/dashboard", key: "dashboard", icon: LayoutDashboard },
+  { href: "/calendar", key: "calendar", icon: CalendarDays },
+  { href: "/journal", key: "journal", icon: NotebookPen },
+  { href: "/trades", key: "trades", icon: ListOrdered },
+  { href: "/reports", key: "reports", icon: BarChart3 },
+  { href: "/prop-firms", key: "propFirms", icon: Landmark },
+  { href: "/notebook", key: "notebook", icon: BookText },
+  { href: "/playbooks", key: "playbooks", icon: BookOpen },
+  { href: "/progress", key: "progress", icon: ListChecks },
+  { href: "/missed", key: "missed", icon: BookmarkPlus },
 ] as const;
 
 const NAV_SETUP = [
-  { href: "/import", label: "Import", icon: Import },
-  { href: "/accounts", label: "Accounts", icon: Wallet },
-  { href: "/billing", label: "Billing", icon: CreditCard },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/import", key: "import", icon: Import },
+  { href: "/accounts", key: "accounts", icon: Wallet },
+  { href: "/billing", key: "billing", icon: CreditCard },
+  { href: "/settings", key: "settings", icon: Settings },
 ] as const;
 
 const SIDEBAR_COLLAPSED_KEY = "journal-sidebar-collapsed-v1";
@@ -108,6 +109,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const search = useSearchParams();
+  const t = useT("shell");
   const [menuOpen, setMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -179,28 +181,28 @@ export function Shell({ children }: { children: React.ReactNode }) {
   if (PUBLIC_SHELL_BYPASS.has(pathname)) return <>{children}</>;
   const navigation = (collapsed = false) => (
     <nav
-      aria-label="Journal navigation"
+      aria-label={t.navigationLabel}
       className="journal-sidebar-navigation min-h-0 flex-1 space-y-0.5 overflow-x-hidden overflow-y-auto overscroll-contain p-2"
       onClick={(event) => {
         if ((event.target as HTMLElement).closest("a")) setMenuOpen(false);
       }}
     >
-      {NAV.map(({ href, label, icon }) => (
+      {NAV.map(({ href, key, icon }) => (
         <NavLink
           key={href}
           href={href === "/prop-firms" ? href : filterQuery.size ? `${href}?${filterQuery}` : href}
-          label={label}
+          label={t.nav[key]}
           icon={icon}
           collapsed={collapsed}
           active={href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href)}
         />
       ))}
       <div className="!my-3 border-t" />
-      {NAV_SETUP.map(({ href, label, icon }) => (
+      {NAV_SETUP.map(({ href, key, icon }) => (
         <NavLink
           key={href}
           href={filterQuery.size ? `${href}?${filterQuery}` : href}
-          label={label}
+          label={t.nav[key]}
           icon={icon}
           collapsed={collapsed}
           active={pathname.startsWith(href)}
@@ -217,10 +219,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
         className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground disabled:opacity-50"
       >
         <LogOut className="h-4 w-4" />
-        {signingOut ? "Signing out…" : "Sign out"}
+        {signingOut ? t.signingOut : t.signOut}
       </button>
       <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-        <div>Not investment advice.</div>
+        <div>{t.disclaimer}</div>
       </div>
     </div>
   );
@@ -233,7 +235,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
               variant="ghost"
               size="icon"
               className="h-9 w-9 shrink-0"
-              aria-label="Open navigation"
+              aria-label={t.openNavigation}
             >
               <Menu />
             </Button>
@@ -260,7 +262,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                     variant="ghost"
                     size="icon"
                     className="ml-auto h-8 w-8"
-                    aria-label="Close navigation"
+                    aria-label={t.closeNavigation}
                   >
                     <X />
                   </Button>
@@ -317,10 +319,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
             size="icon"
             className="journal-sidebar-trigger absolute h-7 w-7 rounded-full bg-background shadow-sm"
             onClick={toggleSidebar}
-            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={sidebarCollapsed ? t.expandSidebar : t.collapseSidebar}
             aria-expanded={!sidebarCollapsed}
             aria-keyshortcuts="Meta+B Control+B"
-            title={`${sidebarCollapsed ? "Expand" : "Collapse"} sidebar (⌘B)`}
+            title={t.sidebarShortcut(sidebarCollapsed)}
           >
             {sidebarCollapsed ? (
               <PanelLeftOpen className="h-3.5 w-3.5" />
@@ -355,6 +357,7 @@ const RENEWAL_REMINDER_DAYS = 5;
  * it never lags behind what the server enforces.
  */
 function PlanBanner() {
+  const t = useT("shell").banner;
   const pathname = usePathname();
   const { data, refresh } = useApi<Entitlement>("/api/plan");
   useEffect(() => {
@@ -374,13 +377,11 @@ function PlanBanner() {
     : null;
   let text: string | null = null;
   if (data.readOnly) {
-    text = data.wasTrial
-      ? "Your free trial has ended — your journal is read-only."
-      : "Your plan has ended — your journal is read-only.";
+    text = data.wasTrial ? t.trialEnded : t.planEnded;
   } else if (data.status === "trial" && days !== null) {
-    text = `Free trial: ${days} day${days === 1 ? "" : "s"} left.`;
+    text = t.trialLeft(days);
   } else if (data.status === "active" && days !== null && days <= RENEWAL_REMINDER_DAYS) {
-    text = `Your plan ends in ${days} day${days === 1 ? "" : "s"}.`;
+    text = t.planEnds(days);
   }
   if (!text) return null;
   return (
@@ -393,7 +394,7 @@ function PlanBanner() {
     >
       <span>{text}</span>
       <Link href="/billing" className="font-medium underline underline-offset-4">
-        {data.readOnly ? "Choose a plan" : data.status === "trial" ? "See plans" : "Extend"}
+        {data.readOnly ? t.choosePlan : data.status === "trial" ? t.seePlans : t.extend}
       </Link>
     </div>
   );

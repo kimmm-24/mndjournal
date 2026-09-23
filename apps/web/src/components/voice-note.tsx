@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { Mic, MicOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { createDictationSession, dictationError, type SpeechRecognizer } from "@/lib/dictation";
+import { createDictationSession, type SpeechRecognizer } from "@/lib/dictation";
+import { useI18n, useT } from "./i18n";
 
 /** Browser speech recognition requires microphone permission and sometimes a network service. */
 export function VoiceNote({
@@ -14,6 +15,25 @@ export function VoiceNote({
   onText: (text: string) => void;
   onPrepare: () => void;
 }) {
+  const t = useT("editor").voice;
+  const { locale } = useI18n();
+  const errorText = (code: string) => {
+    switch (code) {
+      case "not-allowed":
+      case "service-not-allowed":
+        return t.errors.blocked;
+      case "audio-capture":
+        return t.errors.noMic;
+      case "no-speech":
+        return t.errors.noSpeech;
+      case "network":
+        return t.errors.network;
+      case "language-not-supported":
+        return t.errors.language;
+      default:
+        return t.errors.start;
+    }
+  };
   const [state, setState] = useState<"idle" | "starting" | "listening">("idle");
   const [error, setError] = useState("");
   const [keyboardHint, setKeyboardHint] = useState(false);
@@ -40,9 +60,7 @@ export function VoiceNote({
     };
     const Constructor = speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition;
     if (!Constructor) {
-      showError(
-        "This browser does not support speech recognition. Open the journal in Chrome, or use keyboard dictation below.",
-      );
+      showError(t.unsupported);
       return;
     }
     try {
@@ -53,11 +71,13 @@ export function VoiceNote({
           onState: setState,
           onError: showError,
         },
-        navigator.language || "en-US",
+        // Listen in the app's language: Indonesian UI, Indonesian speech.
+        locale === "id" ? "id-ID" : navigator.language || "en-US",
+        errorText,
       );
       session.current.start();
     } catch {
-      showError(dictationError("start"));
+      showError(errorText("start"));
     }
   };
 
@@ -76,19 +96,15 @@ export function VoiceNote({
             size="sm"
             onClick={toggle}
             aria-pressed={state !== "idle"}
-            title={state === "idle" ? "Dictate your note" : "Stop dictation"}
+            title={state === "idle" ? t.dictateHint : t.stop}
           >
             {state === "idle" ? <Mic /> : <MicOff />}
-            {state === "starting"
-              ? "Starting…"
-              : state === "listening"
-                ? "Listening · Stop"
-                : "Dictate"}
+            {state === "starting" ? t.starting : state === "listening" ? t.listening : t.dictate}
           </Button>
         </Popover.Anchor>
         <Popover.Portal>
           <Popover.Content
-            aria-label="Dictation help"
+            aria-label={t.help}
             align="end"
             sideOffset={8}
             collisionPadding={12}
@@ -101,11 +117,7 @@ export function VoiceNote({
             className="journal-popup z-50 max-h-[var(--radix-popover-content-available-height)] w-80 max-w-[calc(100vw-24px)] space-y-3 overflow-y-auto rounded-xl border bg-card p-4 text-sm shadow-lg"
           >
             <p role="alert">{error}</p>
-            <p className="text-muted-foreground">
-              Keyboard dictation types directly into your note. Use your keyboard’s microphone key
-              or your system’s dictation shortcut. On Mac, enable Dictation in System Settings →
-              Keyboard.
-            </p>
+            <p className="text-muted-foreground">{t.keyboardHelp}</p>
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
@@ -117,17 +129,17 @@ export function VoiceNote({
                   onPrepare();
                 }}
               >
-                Use keyboard dictation
+                {t.useKeyboard}
               </Button>
               <Button type="button" size="sm" variant="ghost" onClick={() => setError("")}>
-                Dismiss
+                {t.dismiss}
               </Button>
             </div>
           </Popover.Content>
         </Popover.Portal>
         {keyboardHint && (
           <span role="status" className="sr-only">
-            Note ready. Press your keyboard’s microphone key or dictation shortcut to speak.
+            {t.ready}
           </span>
         )}
       </div>

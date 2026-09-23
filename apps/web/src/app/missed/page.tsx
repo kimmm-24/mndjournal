@@ -13,6 +13,7 @@ import { Attachments } from "@/components/attachments";
 import { ReviewExport } from "@/components/review-export";
 import { MonetaryValue, MonetaryField } from "@/components/privacy";
 import { useApi, postJson } from "@/lib/use-api";
+import { useI18n, useT } from "@/components/i18n";
 interface Missed {
   id: string;
   symbol: string;
@@ -47,6 +48,8 @@ export default function MissedPage() {
 function Missed() {
   const { data, error, refresh } = useApi<{ trades: Missed[] }>("/api/workspace/missed"),
     { data: books } = useApi<{ playbooks: { id: string; name: string }[] }>("/api/playbooks");
+  const tm = useT("workspace").missed;
+  const { dateLocale } = useI18n();
   const [open, setOpen] = useState(false),
     [editing, setEditing] = useState<string | null>(null),
     [draft, setDraft] = useState(blank),
@@ -103,23 +106,20 @@ function Missed() {
   return (
     <div>
       <FilterBar
-        title="Missed trades"
+        title={tm.title}
         actions={
           <Button size="sm" onClick={() => edit()}>
-            Log opportunity
+            {tm.log}
           </Button>
         }
       />
       <div className="space-y-4 p-4">
-        <p className="text-sm text-muted-foreground">
-          Record setups you watched but did not take. These observations never enter your trade
-          count, P&L, or win rate.
-        </p>
+        <p className="text-sm text-muted-foreground">{tm.intro}</p>
         <div className="flex flex-wrap items-center gap-4">
           <input
-            aria-label="Search missed trades"
+            aria-label={tm.search}
             className={`${fieldClass} max-w-sm`}
-            placeholder="Search symbol or notes"
+            placeholder={tm.searchPlaceholder}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -128,7 +128,7 @@ function Missed() {
               checked={archived}
               onCheckedChange={(checked) => setArchived(checked === true)}
             />
-            Show archived
+            {tm.showArchived}
           </label>
         </div>
         {(error || failure) && (
@@ -146,7 +146,7 @@ function Missed() {
                   </CardTitle>
                   <div className="flex gap-2">
                     <Button variant="ghost" size="sm" onClick={() => edit(t)}>
-                      Edit
+                      {tm.edit}
                     </Button>
                     <Button
                       variant="ghost"
@@ -164,21 +164,21 @@ function Missed() {
                         }
                       }}
                     >
-                      {t.archivedAt ? "Restore" : "Archive"}
+                      {t.archivedAt ? tm.restore : tm.archive}
                     </Button>
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {new Date(t.observedAt).toLocaleString()} ·{" "}
-                  {books?.playbooks.find((b) => b.id === t.playbookId)?.name ?? "No strategy"}
+                  {new Date(t.observedAt).toLocaleString(dateLocale)} ·{" "}
+                  {books?.playbooks.find((b) => b.id === t.playbookId)?.name ?? tm.noStrategy}
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex flex-wrap gap-5 text-sm">
                   {[
-                    ["Entry", t.entry],
-                    ["Stop", t.stop],
-                    ["Target", t.target],
+                    [tm.entry, t.entry],
+                    [tm.stop, t.stop],
+                    [tm.target, t.target],
                   ].map(([label, value]) => (
                     <span key={label}>
                       <span className="text-muted-foreground">{label}: </span>
@@ -186,15 +186,19 @@ function Missed() {
                     </span>
                   ))}
                 </div>
-                <Markdown>{t.notes || "No review yet."}</Markdown>
+                <Markdown>{t.notes || tm.noReview}</Markdown>
                 <ReviewExport
                   containsFinancialData
                   document={{
-                    title: `Missed opportunity · ${t.symbol}`,
+                    title: tm.exportTitle(t.symbol),
                     subtitle: `${t.direction} · ${t.observedAt}`,
                     lines: [
-                      "Observation only: no executed trade or actual P&L.",
-                      `Planned entry: ${t.entry ?? "-"} | Stop: ${t.stop ?? "-"} | Target: ${t.target ?? "-"}`,
+                      tm.observationOnly,
+                      tm.plannedLine(
+                        String(t.entry ?? "-"),
+                        String(t.stop ?? "-"),
+                        String(t.target ?? "-"),
+                      ),
                       "",
                       t.notes,
                     ],
@@ -206,35 +210,33 @@ function Missed() {
           ))}
         </div>
         {data && !rows.length && (
-          <p className="py-16 text-center text-sm text-muted-foreground">
-            No {archived ? "archived " : ""}opportunities here yet.
-          </p>
+          <p className="py-16 text-center text-sm text-muted-foreground">{tm.empty(archived)}</p>
         )}
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
             <DialogHeader>
-              <DialogTitle>{editing ? "Edit opportunity" : "Log a missed opportunity"}</DialogTitle>
+              <DialogTitle>{editing ? tm.editTitle : tm.newTitle}</DialogTitle>
             </DialogHeader>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {formField("symbol", "Symbol")}
-              <Field label="Direction">
+              {formField("symbol", tm.symbol)}
+              <Field label={tm.direction}>
                 <OptionSelect
                   className={fieldClass}
                   value={draft.direction}
                   onValueChange={(next) => setDraft({ ...draft, direction: next })}
                 >
-                  <option value="long">Long</option>
-                  <option value="short">Short</option>
+                  <option value="long">{tm.long}</option>
+                  <option value="short">{tm.short}</option>
                 </OptionSelect>
               </Field>
-              {formField("observedAt", "Observed at (device time)", "datetime-local")}
-              <Field label="Strategy">
+              {formField("observedAt", tm.observedAt, "datetime-local")}
+              <Field label={tm.strategy}>
                 <OptionSelect
                   className={fieldClass}
                   value={draft.playbookId}
                   onValueChange={(next) => setDraft({ ...draft, playbookId: next })}
                 >
-                  <option value="">No strategy</option>
+                  <option value="">{tm.noStrategy}</option>
                   {books?.playbooks.map((b) => (
                     <option key={b.id} value={b.id}>
                       {b.name}
@@ -244,15 +246,15 @@ function Missed() {
               </Field>
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {formField("entry", "Planned entry", "number")}
-              {formField("stop", "Planned stop", "number")}
-              {formField("target", "Planned target", "number")}
+              {formField("entry", tm.plannedEntry, "number")}
+              {formField("stop", tm.plannedStop, "number")}
+              {formField("target", tm.plannedTarget, "number")}
             </div>
             <RichEditor
               defaultMode="edit"
               value={draft.notes}
               onChange={(notes) => setDraft({ ...draft, notes })}
-              placeholder="Why did you miss it? What will you do differently?"
+              placeholder={tm.notesPlaceholder}
             />
             {failure && (
               <p role="alert" className="text-xs text-destructive">
@@ -276,13 +278,13 @@ function Missed() {
                   refresh();
                   setFailure("");
                 } catch (e) {
-                  setFailure(e instanceof Error ? e.message : "Could not save.");
+                  setFailure(e instanceof Error ? e.message : tm.saveFailed);
                 } finally {
                   setBusy(false);
                 }
               }}
             >
-              Save opportunity
+              {tm.save}
             </Button>
           </DialogContent>
         </Dialog>

@@ -43,6 +43,8 @@ export function createDictationSession(
     onError(message: string): void;
   },
   language: string,
+  /** Error copy for a failure code; English by default, the UI passes its translation. */
+  errorText: (code: string) => string = dictationError,
 ) {
   let active = true;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -83,16 +85,16 @@ export function createDictationSession(
     detach();
     callbacks.onState("idle");
   };
-  recognizer.onerror = (event) => fail(dictationError(event.error));
+  recognizer.onerror = (event) => fail(errorText(event.error));
   return {
     start() {
       callbacks.onState("starting");
-      timer = setTimeout(() => fail(dictationError("timeout")), 10000);
+      timer = setTimeout(() => fail(errorText("timeout")), 10000);
       try {
         recognizer.start();
       } catch (error) {
         fail(
-          dictationError(
+          errorText(
             error instanceof Error && error.name === "NotAllowedError" ? "not-allowed" : "start",
           ),
         );

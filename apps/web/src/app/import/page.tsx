@@ -29,7 +29,7 @@ import type { Plan } from "@/lib/plan";
 interface BrokerInfo {
   id: string;
   displayName: string;
-  credentials: { key: string; label: string; secret?: boolean }[];
+  credentials: { key: string; label: string; secret?: boolean; options?: string[] }[];
   readOnlySetup: string;
 }
 
@@ -480,13 +480,14 @@ function BrokerConnect() {
     setBusy(true);
     setError(null);
     try {
-      await postJson("/api/accounts", {
+      const created = await postJson<{ syncing?: boolean }>("/api/accounts", {
         name: name || broker.displayName,
         kind: "sync",
         broker: broker.id,
         credentials,
       });
-      router.push("/dashboard");
+      // Slow connectors (MetaTrader) finish their first sync in the background.
+      router.push(created.syncing ? "/accounts" : "/dashboard");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Connection failed");
     } finally {
@@ -497,7 +498,7 @@ function BrokerConnect() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Connect a broker (read-only keys, stored encrypted on YOUR machine)</CardTitle>
+        <CardTitle>Connect a broker (read-only access, stored encrypted)</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <div>
@@ -506,7 +507,15 @@ function BrokerConnect() {
             value={brokerId}
             onValueChange={(value) => {
               setBrokerId(value);
-              setCredentials({});
+              const next = data?.brokers.find((b) => b.id === value);
+              // Choice fields start on their first option, like any select.
+              setCredentials(
+                Object.fromEntries(
+                  (next?.credentials ?? [])
+                    .filter((field) => field.options?.length)
+                    .map((field) => [field.key, field.options![0]!]),
+                ),
+              );
             }}
           >
             <SelectTrigger>
@@ -537,14 +546,32 @@ function BrokerConnect() {
             {broker.credentials.map((field) => (
               <div key={field.key}>
                 <Label className="mb-1 block text-xs text-muted-foreground">{field.label}</Label>
-                <Input
-                  type={field.secret ? "password" : "text"}
-                  value={credentials[field.key] ?? ""}
-                  onChange={(event) =>
-                    setCredentials((c) => ({ ...c, [field.key]: event.target.value }))
-                  }
-                  autoComplete="off"
-                />
+                {field.options ? (
+                  <Select
+                    value={credentials[field.key] ?? ""}
+                    onValueChange={(value) => setCredentials((c) => ({ ...c, [field.key]: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {field.options.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option.toUpperCase()}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    type={field.secret ? "password" : "text"}
+                    value={credentials[field.key] ?? ""}
+                    onChange={(event) =>
+                      setCredentials((c) => ({ ...c, [field.key]: event.target.value }))
+                    }
+                    autoComplete="off"
+                  />
+                )}
               </div>
             ))}
             {error && <p className="text-sm text-loss">{error}</p>}

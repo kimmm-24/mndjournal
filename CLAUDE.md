@@ -65,6 +65,36 @@ earlier naming). It started as a fork of LuxAlgo's open-source, single-user, sel
   `pnpm build` (multiple build workers racing to migrate the same file). Don't revert this to an
   eager singleton.
 
+## Broker sync & MetaTrader
+
+- **`server/sync.ts`** handles every broker-connected (`kind: "sync"`) account. SDK brokers go
+  through `@luxalgo/broker-sdk`. **MetaTrader** (`broker: "metatrader"`) goes through MetaApi
+  instead: the client is in `server/metaapi.ts`, the deal conversion and sync logic in
+  `server/metatrader.ts`. MetaTrader is only listed when `METAAPI_TOKEN` is set. It covers every
+  local Indonesian forex broker, since they all run MetaTrader.
+- **MetaApi bills per deployed hour.** Each sync deploys the cloud terminal, waits for it to
+  connect, reads deals, account info and positions, then undeploys (in a `finally` block). Never
+  leave an account deployed. `recoverInterruptedSyncs()` undeploys terminals left behind by a
+  crash mid-sync. Deleting an account removes its MetaApi terminal (`disconnectBroker`).
+- **Only the MetaApi account id is stored**, never the investor password. It's sent to MetaApi
+  once, at connect time.
+- **Deals → fills:** each deal carries `importMetadata`:
+  - `group` = MT position id, so hedged positions aren't netted together.
+  - `reportedGrossPnl` on closing deals, so journal P&L equals MT's own profit (JPY and cross
+    pairs, gold and cent accounts would be wrong if recomputed from price × lots). Negative
+    swap/commission become fees; positive ones are added to P&L.
+  - `order` = the deal ticket.
+  The execution validator accepts `importMetadata` from any source except `manual`.
+- **Status on the account row:** `syncingSince`, `syncError`, and `syncAttemptedAt` (the backoff
+  clock). Update them via `runAccountSync()`, which also stops the same account from syncing
+  twice at once. MetaTrader's first sync and manual syncs run in the background
+  (`startAccountSync`); the Accounts page polls. Manual MetaTrader syncs are limited to one per
+  10 minutes.
+- **Scheduler:** `server/sync-scheduler.ts` is started from `instrumentation.ts` and ticks every
+  10 minutes. It syncs `autoSync` accounts once per `METATRADER_SYNC_INTERVAL_HOURS` (default 6)
+  or `AUTO_SYNC_INTERVAL_HOURS` (default 1), measured from the last *attempt*. It skips users who
+  are read-only or whose plan excludes sync.
+
 ## Email, verification & password reset
 
 - **`server/email.ts`** sends through Resend's HTTP API (`RESEND_API_KEY`, `EMAIL_FROM`). It

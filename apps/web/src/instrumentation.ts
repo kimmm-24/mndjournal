@@ -6,5 +6,7 @@ export async function register() {
     await ensureLegacyOwner();
     const { grandfatherExistingUsers } = await import("@/server/auth");
     grandfatherExistingUsers();
+    const { startSyncScheduler } = await import("@/server/sync-scheduler");
+    await startSyncScheduler();
   }
 }

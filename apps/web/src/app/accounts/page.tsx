@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Archive, ArchiveRestore, RefreshCw, Trash2 } from "lucide-react";
 import { FilterBar } from "@/components/filter-bar";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +28,8 @@ interface AccountRow {
   profitCalcMethod: "fifo" | "lifo" | "wavg";
   autoSync: boolean;
   lastSyncAt: string | null;
+  syncingSince: string | null;
+  syncError: string | null;
   archivedAt: string | null;
   connected: boolean;
   snapshot: { equity: number; positions: unknown[] } | null;
@@ -44,6 +46,13 @@ export default function AccountsPage() {
 function Accounts() {
   const { data, refresh } = useApi<{ accounts: AccountRow[] }>("/api/accounts");
   const [syncing, setSyncing] = useState<string | null>(null);
+  // Background syncs (MetaTrader) report progress on the account row: poll while one runs.
+  const anyBackgroundSync = data?.accounts.some((account) => account.syncingSince) ?? false;
+  useEffect(() => {
+    if (!anyBackgroundSync) return;
+    const timer = window.setInterval(refresh, 5000);
+    return () => window.clearInterval(timer);
+  }, [anyBackgroundSync, refresh]);
 
   const action = async <T = unknown,>(id: string, body: Record<string, unknown>) => {
     const result = await postJson<T>(`/api/accounts/${id}/actions`, body);
@@ -55,9 +64,10 @@ function Accounts() {
     setSyncing(id);
     try {
       const { sync: outcome } = await action<{
-        sync: { inserted: number; skipped: number; skippedReasons: string[] };
+        sync?: { inserted: number; skipped: number; skippedReasons: string[] };
+        started?: boolean;
       }>(id, { action: "sync" });
-      if (outcome.skipped > 0)
+      if (outcome && outcome.skipped > 0)
         alert(
           `Sync finished with ${outcome.inserted} new fills. ${outcome.skipped} broker record(s) were skipped: ${outcome.skippedReasons.join(" ")}`,
         );
@@ -97,11 +107,15 @@ function Accounts() {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8"
-                    disabled={syncing === account.id}
+                    disabled={syncing === account.id || account.syncingSince !== null}
                     onClick={() => void sync(account.id)}
                     title="Sync now"
                   >
-                    <RefreshCw className={syncing === account.id ? "animate-spin" : undefined} />
+                    <RefreshCw
+                      className={
+                        syncing === account.id || account.syncingSince ? "animate-spin" : undefined
+                      }
+                    />
                   </Button>
                 )}
                 <Button
@@ -136,6 +150,16 @@ function Accounts() {
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
+              {account.syncingSince && (
+                <p className="text-sm text-muted-foreground">
+                  Syncing…
+                  {account.broker === "metatrader" &&
+                    " Connecting to MetaTrader can take a minute or two."}
+                </p>
+              )}
+              {!account.syncingSince && account.syncError && (
+                <p className="text-sm text-loss">Last sync failed: {account.syncError}</p>
+              )}
               {account.snapshot && (
                 <div className="text-sm">
                   Broker equity:{" "}

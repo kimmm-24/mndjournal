@@ -31,6 +31,12 @@ export const accounts = sqliteTable(
     lastSyncAt: text("last_sync_at"),
     /** Latest snapshot from sync, for display: { equity, positions } JSON. */
     snapshotJson: text("snapshot_json"),
+    /** Set while a sync runs (server/sync.ts's runAccountSync); cleared when it ends. */
+    syncingSince: text("syncing_since"),
+    /** Why the last sync failed, shown on the Accounts page; null after a success. */
+    syncError: text("sync_error"),
+    /** Start of the last sync attempt, successful or not — the scheduler's backoff clock. */
+    syncAttemptedAt: text("sync_attempted_at"),
     archivedAt: text("archived_at"),
     createdAt: text("created_at").notNull(),
   },

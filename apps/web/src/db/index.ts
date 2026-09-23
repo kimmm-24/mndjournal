@@ -120,6 +120,13 @@ const createDb = () => {
       `);
     })();
   }
+  // Sync status (background syncs, e.g. MetaTrader via MetaApi, report here).
+  const accountColumns = sqlite.pragma("table_info(accounts)") as { name: string }[];
+  for (const name of ["syncing_since", "sync_error", "sync_attempted_at"]) {
+    if (!accountColumns.some((column) => column.name === name)) {
+      sqlite.exec(`ALTER TABLE accounts ADD COLUMN ${name} TEXT`);
+    }
+  }
   // Billing upgrade: subscriptions predates trials and paid periods. Existing
   // rows were manual SQL grants, so the 'comp' default keeps them non-expiring.
   const subscriptionColumns = sqlite.pragma("table_info(subscriptions)") as { name: string }[];

@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { accounts, db, executions, trades } from "@/db";
 import { bad, currentUserId, handler, ok } from "@/server/api";
 import { rebuildAccount } from "@/server/rebuild";
+import { disconnectBroker } from "@/server/sync";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -47,7 +48,7 @@ export const DELETE = handler(async (_request: Request, { params }: Params) => {
   const userId = await currentUserId();
   const { id } = await params;
   const account = db
-    .select({ id: accounts.id })
+    .select({ id: accounts.id, broker: accounts.broker, credentialsEnc: accounts.credentialsEnc })
     .from(accounts)
     .where(and(eq(accounts.id, id), eq(accounts.userId, userId)))
     .get();
@@ -57,5 +58,7 @@ export const DELETE = handler(async (_request: Request, { params }: Params) => {
     tx.delete(executions).where(eq(executions.accountId, id)).run();
     tx.delete(accounts).where(eq(accounts.id, id)).run();
   });
+  // e.g. removes the MetaApi terminal, so nothing is left behind that could bill.
+  await disconnectBroker(account);
   return ok({ deleted: true });
 });

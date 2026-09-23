@@ -3,7 +3,8 @@ import { accounts, db } from "@/db";
 import { bad, currentUserId, handler, ok } from "@/server/api";
 import { encryptJson } from "@/server/crypto";
 import { newId, nowIso } from "@/server/ids";
-import { syncAccount } from "@/server/sync";
+import { connectMetaTrader } from "@/server/metatrader";
+import { isMetaTrader, startAccountSync, syncAccount } from "@/server/sync";
 import {
   accountLimitMessage,
   getAccountLimit,
@@ -71,6 +72,18 @@ export const POST = handler(async (request: Request) => {
     .n;
   if (existing >= limit) return bad(accountLimitMessage(limit), 403);
 
+  // MetaTrader: MetaApi logs in with the investor password now (so a typo
+  // fails here, before any account exists); only the resulting connection id
+  // is stored — never the password.
+  let credentials: unknown = body.credentials;
+  if (body.kind === "sync" && isMetaTrader(body.broker!)) {
+    try {
+      credentials = await connectMetaTrader(body.name, body.credentials!);
+    } catch (error) {
+      return bad(error instanceof Error ? error.message : "MetaTrader connection failed", 502);
+    }
+  }
+
   const id = newId();
   db.insert(accounts)
     .values({
@@ -82,11 +95,19 @@ export const POST = handler(async (request: Request) => {
       currency: body.currency ?? "USD",
       initialBalance: body.initialBalance ?? 0,
       profitCalcMethod: body.profitCalcMethod ?? "fifo",
-      credentialsEnc: body.kind === "sync" ? encryptJson(body.credentials) : null,
+      credentialsEnc: body.kind === "sync" ? encryptJson(credentials) : null,
       autoSync: body.autoSync ?? body.kind === "sync",
       createdAt: nowIso(),
     })
     .run();
+
+  // MetaTrader's first sync takes a minute or two (the cloud terminal has to
+  // start and log in), so it runs in the background; the Accounts page shows
+  // its progress.
+  if (body.kind === "sync" && isMetaTrader(body.broker!)) {
+    startAccountSync(id);
+    return ok({ id, sync: null, syncing: true });
+  }
 
   // First sync happens right away so the account isn't born empty.
   let sync = null;

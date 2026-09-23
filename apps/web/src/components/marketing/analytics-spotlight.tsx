@@ -1,4 +1,5 @@
-import { JournalMockup } from "./journal-mockup";
+import { DashboardFlagshipMockup } from "./dashboard-flagship-mockup";
+import { ReportsBreakdownMockup } from "./reports-breakdown-mockup";
 import { PlanNote } from "./plan-note";
 
 export function AnalyticsSpotlight() {
@@ -18,7 +19,11 @@ export function AnalyticsSpotlight() {
         </div>
 
         <div className="mt-14">
-          <JournalMockup />
+          <DashboardFlagshipMockup />
+        </div>
+
+        <div className="mx-auto mt-6 max-w-3xl">
+          <ReportsBreakdownMockup />
         </div>
       </div>
     </section>

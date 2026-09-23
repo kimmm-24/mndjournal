@@ -1,5 +1,6 @@
 import { Import, FileSpreadsheet, Landmark } from "lucide-react";
 import { PlanNote } from "./plan-note";
+import { TradesTableMockup } from "./trades-table-mockup";
 
 const FORMATS = ["Interactive Brokers (IBKR)", "MetaTrader", "ThinkOrSwim", "CSV generik"];
 
@@ -35,27 +36,25 @@ export function AutomatedJournaling() {
               <span>Deduplikasi otomatis — import ulang file yang sama tidak akan dobel.</span>
             </li>
           </ul>
+
+          <div className="mt-6">
+            <div className="text-xs font-semibold uppercase tracking-wide text-[#7d879e]">
+              Format yang didukung
+            </div>
+            <div className="mt-2.5 flex flex-wrap gap-2">
+              {FORMATS.map((format) => (
+                <span
+                  key={format}
+                  className="rounded-full border border-[#2a3245] bg-[#1c2230] px-3 py-1 text-xs text-[#c3cad9]"
+                >
+                  {format}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
 
-        <div className="rounded-xl border border-[#2a3245] bg-[#1c2230] p-6">
-          <div className="text-xs font-semibold uppercase tracking-wide text-[#7d879e]">
-            Format yang didukung
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            {FORMATS.map((format) => (
-              <div
-                key={format}
-                className="rounded-lg border border-[#2a3245] bg-[#141820] px-3 py-3 text-sm text-white"
-              >
-                {format}
-              </div>
-            ))}
-          </div>
-          <p className="mt-4 text-xs text-[#7d879e]">
-            Tidak menemukan broker Anda? Import CSV generik menerima kolom apa pun lewat mapping
-            manual.
-          </p>
-        </div>
+        <TradesTableMockup />
       </div>
     </section>
   );

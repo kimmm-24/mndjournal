@@ -1,10 +1,12 @@
 import { asc, eq } from "drizzle-orm";
 import { db, playbooks } from "@/db";
 import { clipForAi } from "@/lib/ai-quota";
+import { formatForAi, timeZoneLabel } from "@/lib/timezone";
 import { replyLanguage, runAi } from "./ai";
+import { getTimeZone } from "./settings";
+import { getTradeByKey, rowToTrade } from "./trades-query";
 
 const MAX_PLAYBOOKS = 20;
-import { getTradeByKey, rowToTrade } from "./trades-query";
 
 export interface PlaybookSuggestion {
   playbookId: string | null;
@@ -46,6 +48,9 @@ export const suggestPlaybook = async (
     })
     .join("\n");
 
+  // Times go out on the trader's own clock, with the zone named, so rules
+  // like "only 14:00-17:00 WIB" are judged against the right hour.
+  const timeZone = getTimeZone(userId);
   const language = await replyLanguage();
   const text = await runAi(
     `Match this single trade to the ONE best-fitting playbook from the trader's own playbook list
@@ -54,12 +59,12 @@ below, based on its rules and description. If none genuinely fit, say so.
 Playbooks:
 ${playbookLines}
 
-Trade to match:
+Trade to match (times in ${timeZoneLabel(timeZone, new Date(trade.openedAt))}):
 Symbol: ${trade.symbol}
 Direction: ${trade.direction}
 Status: ${trade.status}
-Opened: ${trade.openedAt}
-Closed: ${trade.closedAt ?? "still open"}
+Opened: ${formatForAi(trade.openedAt, timeZone)}
+Closed: ${trade.closedAt ? formatForAi(trade.closedAt, timeZone) : "still open"}
 Entry: ${trade.avgEntry} -> Exit: ${trade.avgExit ?? "n/a"}
 Notes: ${row.notes ? clipForAi(row.notes, 2_000) : "(none)"}
 

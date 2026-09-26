@@ -11,6 +11,7 @@ import {
 } from "@luxalgo/journal-core";
 import { bad, currentUserId, handler, ok } from "@/server/api";
 import { AI_MAX_QUESTION_CHARS, aiQuestionTooLongMessage } from "@/lib/ai-quota";
+import { timeZoneLabel } from "@/lib/timezone";
 import { runAi } from "@/server/ai";
 import { getTimeZone } from "@/server/settings";
 import { queryTrades } from "@/server/trades-query";
@@ -43,8 +44,8 @@ export const POST = handler(async (request: Request) => {
   const context = [
     `Overall: net ${m.netPnl.toFixed(2)} over ${m.closedTrades} closed trades (${m.tradingDays} days), win rate ${m.winRate === null ? "n/a" : `${(m.winRate * 100).toFixed(1)}%`}, profit factor ${m.profitFactorIsInfinite ? "inf" : (m.profitFactor?.toFixed(2) ?? "n/a")}, avg win ${m.avgWin?.toFixed(2) ?? "n/a"}, avg loss ${m.avgLoss?.toFixed(2) ?? "n/a"}, max drawdown ${m.maxDrawdown.toFixed(2)}, day win rate ${m.dayWinRate === null ? "n/a" : `${(m.dayWinRate * 100).toFixed(0)}%`}, fees ${m.fees.toFixed(2)}.`,
     bucketBlock("By symbol (top 12)", bySymbol(trades).slice(0, 12)),
-    bucketBlock("By weekday", byWeekday(trades, timeZone)),
-    bucketBlock("By hour of open", byHour(trades, timeZone)),
+    bucketBlock(`By weekday (${timeZoneLabel(timeZone)})`, byWeekday(trades, timeZone)),
+    bucketBlock(`By hour of open (${timeZoneLabel(timeZone)})`, byHour(trades, timeZone)),
     bucketBlock("By holding time", byDuration(trades)),
     bucketBlock("By tag", byTag(trades).slice(0, 12)),
     bucketBlock("By mistake", byMistake(trades).slice(0, 12)),

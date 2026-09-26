@@ -1,7 +1,9 @@
 import { clipForAi } from "@/lib/ai-quota";
+import { formatForAi, timeZoneLabel } from "@/lib/timezone";
 import { bad, currentUserId, handler, ok } from "@/server/api";
 import { runAi } from "@/server/ai";
 import { listExecutions } from "@/server/executions";
+import { getTimeZone } from "@/server/settings";
 import { getTradeByKey, rowToTrade } from "@/server/trades-query";
 
 const MAX_FILLS = 60;
@@ -25,11 +27,12 @@ export const POST = handler(async (request: Request) => {
   const fills = listExecutions(row.accountId, trade.executionIds).sort((a, b) =>
     a.executedAt.localeCompare(b.executedAt),
   );
+  const timeZone = getTimeZone(userId);
   const fillLines = fills
     .slice(0, MAX_FILLS)
     .map(
       (fill) =>
-        `${fill.executedAt} ${fill.side} ${fill.quantity} @ ${fill.price}${fill.fee ? ` fee ${fill.fee}` : ""}`,
+        `${formatForAi(fill.executedAt, timeZone)} ${fill.side} ${fill.quantity} @ ${fill.price}${fill.fee ? ` fee ${fill.fee}` : ""}`,
     );
   if (fills.length > MAX_FILLS) fillLines.push(`…and ${fills.length - MAX_FILLS} more fills`);
 
@@ -46,7 +49,7 @@ Planned stop: ${row.stopLoss ?? "none recorded"} | target: ${row.profitTarget ??
 Rating: ${row.rating ?? "unrated"} | tags: ${list(trade.annotations?.tags)} | mistakes: ${list(trade.annotations?.mistakes)}
 Notes: ${row.notes ? clipForAi(row.notes, MAX_NOTE_CHARS) : "none"}
 
-Fills:
+Fills (times in ${timeZoneLabel(timeZone, new Date(trade.openedAt))}):
 ${fillLines.join("\n")}`,
     1200,
     userId,

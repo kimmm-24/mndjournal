@@ -492,10 +492,11 @@ export const metatraderConnects = sqliteTable(
 );
 
 /**
- * Combined recap + critique + ask-journal call count per user per calendar
- * month (UTC), keyed by a "YYYY-MM" string so a new month is simply a new
- * row — no reset job needed. Enforced in server/ai.ts's runAi, the single
- * choke point all three AI routes already call through.
+ * AI call count per user per quota period, shared by every AI feature. The
+ * period is a calendar month (UTC), keyed "YYYY-MM" so a new month is simply
+ * a new row — no reset job needed — or "trial" for the whole free trial.
+ * Enforced in server/ai.ts's runAi, the single choke point every AI route
+ * calls through (server/ai-quota.ts reserves a call before it's made).
  */
 export const aiUsage = sqliteTable(
   "ai_usage",
@@ -505,6 +506,27 @@ export const aiUsage = sqliteTable(
     count: integer("count").notNull().default(0),
   },
   (table) => [primaryKey({ columns: [table.userId, table.month] })],
+);
+
+/**
+ * One row per AI call that reached the provider: tokens and what it cost us.
+ * `serverKey` is 1 when our own API key paid for it; only those rows count
+ * toward the daily AI budget. `day` is the Jakarta (WIB) date.
+ */
+export const aiCalls = sqliteTable(
+  "ai_calls",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: text("user_id").notNull(),
+    day: text("day").notNull(),
+    model: text("model").notNull(),
+    inputTokens: integer("input_tokens").notNull(),
+    outputTokens: integer("output_tokens").notNull(),
+    costUsd: real("cost_usd").notNull(),
+    serverKey: integer("server_key", { mode: "boolean" }).notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [index("ai_calls_day").on(table.day)],
 );
 
 /**

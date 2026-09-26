@@ -1,6 +1,9 @@
 import { asc, eq } from "drizzle-orm";
 import { db, playbooks } from "@/db";
+import { clipForAi } from "@/lib/ai-quota";
 import { replyLanguage, runAi } from "./ai";
+
+const MAX_PLAYBOOKS = 20;
 import { getTradeByKey, rowToTrade } from "./trades-query";
 
 export interface PlaybookSuggestion {
@@ -33,10 +36,13 @@ export const suggestPlaybook = async (
     throw new Error("You don't have any playbooks yet — create one first to get a suggestion.");
   }
 
+  // Bounded prompt: at most MAX_PLAYBOOKS playbooks, descriptions and rules
+  // trimmed. Names stay whole, since the answer must echo one exactly.
   const playbookLines = userPlaybooks
+    .slice(0, MAX_PLAYBOOKS)
     .map((playbook, index) => {
-      const rules = (JSON.parse(playbook.rulesJson || "[]") as string[]).join("; ");
-      return `${index + 1}. "${playbook.name}" — description: ${playbook.description || "(none)"}; rules: ${rules || "(none)"}`;
+      const rules = clipForAi((JSON.parse(playbook.rulesJson || "[]") as string[]).join("; "), 400);
+      return `${index + 1}. "${playbook.name}" — description: ${clipForAi(playbook.description || "(none)", 300)}; rules: ${rules || "(none)"}`;
     })
     .join("\n");
 
@@ -55,7 +61,7 @@ Status: ${trade.status}
 Opened: ${trade.openedAt}
 Closed: ${trade.closedAt ?? "still open"}
 Entry: ${trade.avgEntry} -> Exit: ${trade.avgExit ?? "n/a"}
-Notes: ${row.notes || "(none)"}
+Notes: ${row.notes ? clipForAi(row.notes, 2_000) : "(none)"}
 
 Reply in EXACTLY this format and nothing else — REASON in ${language}, one short sentence:
 PLAYBOOK: <exact playbook name from the list above, or NONE>

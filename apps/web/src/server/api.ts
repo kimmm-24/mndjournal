@@ -5,7 +5,15 @@ import { READ_ONLY_MESSAGE } from "@/lib/plan";
 import { auth } from "./auth";
 import { getEntitlement } from "./plan";
 
-export class RequestError extends Error {}
+/** A refusal the user can act on; `handler` answers with its status (400 unless given). */
+export class RequestError extends Error {
+  constructor(
+    message: string,
+    readonly status = 400,
+  ) {
+    super(message);
+  }
+}
 export function requireValue(condition: unknown, message: string): asserts condition {
   if (!condition) throw new RequestError(message);
 }
@@ -72,7 +80,7 @@ export const handler =
       const message = error instanceof Error ? error.message : "Internal error";
       return NextResponse.json(
         { error: message },
-        { status: error instanceof RequestError ? 400 : 500 },
+        { status: error instanceof RequestError ? error.status : 500 },
       );
     }
   };

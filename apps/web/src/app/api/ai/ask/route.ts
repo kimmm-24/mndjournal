@@ -10,6 +10,7 @@ import {
   type BucketStats,
 } from "@luxalgo/journal-core";
 import { bad, currentUserId, handler, ok } from "@/server/api";
+import { AI_MAX_QUESTION_CHARS, aiQuestionTooLongMessage } from "@/lib/ai-quota";
 import { runAi } from "@/server/ai";
 import { getTimeZone } from "@/server/settings";
 import { queryTrades } from "@/server/trades-query";
@@ -32,6 +33,7 @@ export const POST = handler(async (request: Request) => {
   const userId = await currentUserId();
   const { question } = (await request.json()) as { question?: string };
   if (!question) return bad("question is required");
+  if (question.length > AI_MAX_QUESTION_CHARS) return bad(aiQuestionTooLongMessage());
   const timeZone = getTimeZone(userId);
 
   const { trades } = queryTrades(undefined, userId);
@@ -46,7 +48,7 @@ export const POST = handler(async (request: Request) => {
     bucketBlock("By holding time", byDuration(trades)),
     bucketBlock("By tag", byTag(trades).slice(0, 12)),
     bucketBlock("By mistake", byMistake(trades).slice(0, 12)),
-    bucketBlock("By playbook", byPlaybook(trades)),
+    bucketBlock("By playbook", byPlaybook(trades).slice(0, 12)),
   ].join("\n");
 
   const answer = await runAi(

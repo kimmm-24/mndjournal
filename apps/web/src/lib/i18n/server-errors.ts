@@ -1,4 +1,9 @@
-import { PLAN_NOT_INCLUDED_MESSAGE } from "../ai-quota";
+import {
+  AI_PAUSED_MESSAGE,
+  AI_PROMPT_TOO_LARGE_MESSAGE,
+  AI_TOO_FAST_MESSAGE,
+  PLAN_NOT_INCLUDED_MESSAGE,
+} from "../ai-quota";
 import {
   METATRADER_ADDON_PLAN_MESSAGE,
   METATRADER_ADDON_RUNNING_MESSAGE,
@@ -34,6 +39,12 @@ const EXACT: Record<string, string> = {
     "Broker sync dan import file tidak termasuk dalam paket Anda. Upgrade ke Pro atau Elite, atau tambahkan akun manual.",
   [PLAN_NOT_INCLUDED_MESSAGE]:
     "Fitur AI tidak termasuk dalam paket Anda. Upgrade ke Pro atau Elite untuk menggunakannya.",
+  [AI_TOO_FAST_MESSAGE]:
+    "Anda mengirim permintaan AI terlalu cepat. Tunggu satu menit, lalu coba lagi.",
+  [AI_PAUSED_MESSAGE]:
+    "Fitur AI dijeda sampai akhir hari ini. Silakan coba lagi besok; bagian lain jurnal Anda tetap berjalan seperti biasa.",
+  [AI_PROMPT_TOO_LARGE_MESSAGE]:
+    "Permintaan ini berisi terlalu banyak data untuk AI. Coba catatan yang lebih pendek atau hari dengan lebih sedikit trade.",
 
   Unauthorized: "Sesi Anda telah berakhir. Silakan masuk kembali.",
   "Unknown action": "Aksi tidak dikenal.",
@@ -177,6 +188,15 @@ const PATTERNS: Pattern[] = [
     /^You've reached your plan's limit of (\d+) prop-firm accounts?\. Upgrade to add more\.$/,
     (m) =>
       `Anda sudah mencapai batas paket Anda: ${m[1]} akun prop firm. Upgrade untuk menambah lagi.`,
+  ],
+  [
+    /^You've used all (\d+) AI calls included in your trial\. Choose a plan on the Billing page to keep using AI\.$/,
+    (m) =>
+      `Anda sudah memakai semua ${m[1]} panggilan AI yang termasuk dalam masa trial. Pilih paket di halaman Billing untuk tetap memakai AI.`,
+  ],
+  [
+    /^Your question is too long\. Keep it under ([\d,]+) characters\.$/,
+    (m) => `Pertanyaan Anda terlalu panjang. Maksimal ${m[1]} karakter.`,
   ],
   [
     /^Your AI quota for this month is used up \((\d+)\/(\d+)\)\. It resets on (\S+)\.$/,

@@ -32,6 +32,23 @@ export function aiFeedback(
       tone: "info",
       action: { label: f.notIncluded.action, href: "/billing" },
     };
+  if (/included in your trial|termasuk dalam masa trial/i.test(message))
+    return {
+      title: f.trialQuota.title,
+      description: message,
+      tone: "info",
+      action: { label: f.trialQuota.action, href: "/billing" },
+    };
+  if (/requests too quickly|permintaan AI terlalu cepat/i.test(message))
+    return { title: f.tooFast.title, description: message, tone: "info", retry: true };
+  if (/paused for the rest of today|dijeda sampai akhir hari ini/i.test(message))
+    return { title: f.paused.title, description: message, tone: "info" };
+  if (
+    /question is too long|too much data for AI|Pertanyaan Anda terlalu panjang|terlalu banyak data untuk AI/i.test(
+      message,
+    )
+  )
+    return { title: f.tooLong.title, description: message, tone: "info" };
   if (/AI quota for this month is used up|Kuota AI bulan ini sudah habis/i.test(message))
     return {
       title: f.quota.title,

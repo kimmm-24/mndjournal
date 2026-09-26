@@ -213,8 +213,28 @@ bank transfer and e-wallets, which can't be charged recurringly.
   pay, so the model is fixed to the default and users can't pick another (`getAiModel`). Users
   with their own key still choose.
 - **`server/ai-quota.ts`** — AI usage quota, tracked in the `ai_usage` table per user per calendar
-  month. Starter gets 0 (no AI at all). Quotas are env-configurable: `TRIAL_AI_QUOTA` (default 10),
-  `PRO_AI_QUOTA` (default 100), `ELITE_AI_QUOTA` (default 300).
+  month (key `YYYY-MM`), or once for the whole trial (key `trial`). Starter gets 0 (no AI at all).
+  Quotas are env-configurable: `TRIAL_AI_QUOTA` (default 10, per trial), `PRO_AI_QUOTA` (default
+  50), `ELITE_AI_QUOTA` (default 105). A set env var wins over the default.
+- **AI cost guards**, all inside `runAi()` (`server/ai.ts`), since production uses our own
+  Anthropic key:
+  - The quota is **reserved before the call** with one conditional upsert (`reserveAiCall`), so
+    parallel requests can't exceed it, and given back if the call fails.
+  - Prompts are capped at `AI_MAX_PROMPT_CHARS` (24k characters, ~$0.014 worst case per call on
+    Haiku 4.5, 413 above it). Each route also trims the user's own text (question ≤ 1,000
+    characters, notes 2,000, ≤ 100 trades in a recap, ≤ 20 playbooks).
+  - Per-user burst limit, in memory: `AI_MAX_IN_FLIGHT_PER_USER` (default 1) and
+    `AI_MAX_CALLS_PER_MINUTE` (default 10), 429 above it.
+  - Daily budget: every call is recorded in `ai_calls` (tokens, cost). Calls paid by our key stop
+    for the rest of the WIB day once `AI_DAILY_BUDGET_USD` (default 10; 0 turns AI off) would be
+    passed. It logs `[ai] daily AI budget 80% used` / `reached` once per day, and AI answers 503
+    `AI_PAUSED_MESSAGE` while the rest of the app works.
+  - Anthropic's own spend caps and credits (the Console usage limit, a 400; the tier's monthly
+    cap, a 429 with `enforced_spend_limit_reached`; no prepaid credits left, a 402
+    `billing_error` or a 400 "credit balance is too low") are not retried or counted against
+    the quota; on our key they return the same 503 and log one `[ai] Anthropic refused` line
+    per day. The fix is in the Anthropic Console (buy credits, raise the limit), not the code.
+  - `tests/ai-guards.test.ts` covers each guard.
 - **Enforcement is server-side, always**, with UI hidden entirely for restricted tiers (never just
   a disabled button) — this is the standing pattern for every gated feature: account limits
   (`api/accounts/route.ts`), playbooks (`api/playbooks/route.ts`), prop-firm accounts

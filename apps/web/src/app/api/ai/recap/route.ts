@@ -2,9 +2,16 @@ import { and, eq } from "drizzle-orm";
 import { computeMetrics, dayKeyOf } from "@luxalgo/journal-core";
 import { db, journalDays } from "@/db";
 import { bad, currentUserId, handler, ok } from "@/server/api";
+import { clipForAi } from "@/lib/ai-quota";
 import { runAi } from "@/server/ai";
 import { getTimeZone } from "@/server/settings";
 import { queryTrades } from "@/server/trades-query";
+
+const MAX_TRADES = 100;
+const MAX_NOTE_CHARS = 2_000;
+
+/** At most 10 tags or mistakes, trimmed, to keep the prompt bounded. */
+const list = (items: string[]): string => clipForAi(items.slice(0, 10).join(", "), 200);
 
 /** Generate a session recap for one trading day from the day's actual trades. */
 export const POST = handler(async (request: Request) => {
@@ -26,14 +33,21 @@ export const POST = handler(async (request: Request) => {
     .where(and(eq(journalDays.date, date), eq(journalDays.userId, userId)))
     .get()?.note;
 
+  // The day stats above cover every trade; the list itself is capped.
   const tradeLines = dayTrades
+    .slice(0, MAX_TRADES)
     .map(
       (trade) =>
         `${trade.symbol} ${trade.direction} qty ${trade.quantity} | entry ${trade.avgEntry} → exit ${trade.avgExit} | net ${trade.netPnl.toFixed(2)} | held ${Math.round((trade.durationMs ?? 0) / 60_000)}m` +
-        (trade.annotations?.tags?.length ? ` | tags: ${trade.annotations.tags.join(", ")}` : "") +
+        (trade.annotations?.tags?.length ? ` | tags: ${list(trade.annotations.tags)}` : "") +
         (trade.annotations?.mistakes?.length
-          ? ` | mistakes: ${trade.annotations.mistakes.join(", ")}`
+          ? ` | mistakes: ${list(trade.annotations.mistakes)}`
           : ""),
+    )
+    .concat(
+      dayTrades.length > MAX_TRADES
+        ? [`…and ${dayTrades.length - MAX_TRADES} more trades (included in the day stats)`]
+        : [],
     )
     .join("\n");
 
@@ -48,7 +62,7 @@ fees ${metrics.fees.toFixed(2)}.
 Trades:
 ${tradeLines}
 
-${existingNote ? `The trader's own note so far (respect it, build on it):\n${existingNote}` : ""}`,
+${existingNote ? `The trader's own note so far (respect it, build on it):\n${clipForAi(existingNote, MAX_NOTE_CHARS)}` : ""}`,
     1200,
     userId,
   );

@@ -240,6 +240,18 @@ CREATE TABLE IF NOT EXISTS ai_usage (
   count INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (user_id, month)
 );
+CREATE TABLE IF NOT EXISTS ai_calls (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT NOT NULL,
+  day TEXT NOT NULL,
+  model TEXT NOT NULL,
+  input_tokens INTEGER NOT NULL,
+  output_tokens INTEGER NOT NULL,
+  cost_usd REAL NOT NULL,
+  server_key INTEGER NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ai_calls_day ON ai_calls (day);
 
 -- Better Auth's own tables (see db/schema.ts for the Drizzle side and why the
 -- field/table names below must match Better Auth's schema exactly).

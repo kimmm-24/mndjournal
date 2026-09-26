@@ -14,6 +14,10 @@ export const ai = defineMessages({
       },
       notIncluded: { title: "Upgrade to use AI features", action: "See plans" },
       quota: { title: "Monthly AI quota reached" },
+      trialQuota: { title: "Trial AI calls used up", action: "See plans" },
+      tooFast: { title: "Slow down a little" },
+      paused: { title: "AI is paused for today" },
+      tooLong: { title: "Too much text for AI" },
       auth: {
         title: "Check your AI connection",
         description:
@@ -90,6 +94,10 @@ export const ai = defineMessages({
       },
       notIncluded: { title: "Upgrade untuk memakai fitur AI", action: "Lihat paket" },
       quota: { title: "Kuota AI bulanan tercapai" },
+      trialQuota: { title: "Jatah AI masa trial sudah habis", action: "Lihat paket" },
+      tooFast: { title: "Pelan-pelan sedikit" },
+      paused: { title: "AI dijeda untuk hari ini" },
+      tooLong: { title: "Teks terlalu panjang untuk AI" },
       auth: {
         title: "Periksa koneksi AI Anda",
         description:

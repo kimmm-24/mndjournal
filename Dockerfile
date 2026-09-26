@@ -20,6 +20,10 @@ COPY --from=builder /repo/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder /repo/apps/web/public ./apps/web/public
 RUN mkdir -p /data && chown -R node:node /data /app
 # Litestream: continuous SQLite backup, used only when LITESTREAM_BUCKET is set.
+# It needs the system CA certificates for HTTPS to R2 (node:slim has none;
+# Node itself uses its bundled ones).
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 ARG TARGETARCH=amd64
 ADD https://github.com/benbjohnson/litestream/releases/download/v0.3.13/litestream-v0.3.13-linux-${TARGETARCH}.tar.gz /tmp/litestream.tar.gz
 RUN tar -xzf /tmp/litestream.tar.gz -C /usr/local/bin litestream && rm /tmp/litestream.tar.gz

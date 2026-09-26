@@ -58,6 +58,16 @@ export const auth = betterAuth({
   // needs to manage one piece of key material; falls back to Better Auth's
   // own default (with a dev-mode warning) if neither is set.
   secret: process.env.BETTER_AUTH_SECRET || process.env.JOURNAL_SECRET,
+  /**
+   * Rate limits (on in production: sign-in/sign-up 3 per 10 s, password
+   * reset/verification 3 per 60 s) are counted per client IP. Railway's edge
+   * sets X-Real-IP to the client's address. Better Auth's default,
+   * X-Forwarded-For, reaches us as a chain it won't trust without a proxy
+   * list, so it found no IP and shared one bucket between all users. Only
+   * X-Real-IP is read: X-Forwarded-For's leftmost entry is whatever the
+   * client sent, so reading it would let anyone reset their own limit.
+   */
+  advanced: { ipAddress: { ipAddressHeaders: ["x-real-ip"] } },
   plugins: [nextCookies()],
 });
 

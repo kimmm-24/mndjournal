@@ -160,6 +160,10 @@ earlier naming). It started as a fork of LuxAlgo's open-source, single-user, sel
   existing user verified the first time the app boots with email configured, then stores a
   one-time marker (`emailVerificationEnforcedAt` setting). The legacy-migrated owner account is
   marked verified when it's created.
+- **Rate limits** (Better Auth's, on in production only) are counted per client IP, read from
+  `X-Real-IP`, which Railway's edge sets (`advanced.ipAddress` in `server/auth.ts`). Don't add
+  `X-Forwarded-For`: its leftmost entry is client-supplied, so it would let anyone dodge the limit.
+  `tests/auth-rate-limit.test.ts` covers it.
 - **Pages:** `/forgot-password` → email link → Better Auth's `/api/auth/reset-password/:token` →
   `/reset-password?token=…`. A reset signs the user out on all devices.
 

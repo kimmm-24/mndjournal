@@ -19,6 +19,12 @@ COPY --from=builder /repo/apps/web/.next/standalone ./
 COPY --from=builder /repo/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder /repo/apps/web/public ./apps/web/public
 RUN mkdir -p /data && chown -R node:node /data /app
+# Litestream: continuous SQLite backup, used only when LITESTREAM_BUCKET is set.
+ARG TARGETARCH=amd64
+ADD https://github.com/benbjohnson/litestream/releases/download/v0.3.13/litestream-v0.3.13-linux-${TARGETARCH}.tar.gz /tmp/litestream.tar.gz
+RUN tar -xzf /tmp/litestream.tar.gz -C /usr/local/bin litestream && rm /tmp/litestream.tar.gz
+COPY litestream.yml /etc/litestream.yml
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 EXPOSE 3000
 ENV PORT=3000 HOSTNAME=0.0.0.0
-CMD ["node", "apps/web/server.js"]
+CMD ["sh", "/app/docker-entrypoint.sh"]

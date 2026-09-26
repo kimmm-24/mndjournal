@@ -305,6 +305,28 @@ Hosted on **Railway**. Production SQLite lives at `/data/journal.db` in the cont
 no `sqlite3` CLI — run SQL against it via `railway ssh` + `node -e` loading `better-sqlite3`
 directly (it's already a dependency), not by trying to install a CLI in the container.
 
+## Backups
+
+- **Litestream** (`litestream.yml`, `docker-entrypoint.sh`, installed in the `Dockerfile`)
+  continuously copies `/data/journal.db` to S3-compatible storage (Cloudflare R2). It runs only
+  when `LITESTREAM_BUCKET` is set, along with `LITESTREAM_ENDPOINT`, `LITESTREAM_ACCESS_KEY_ID`,
+  `LITESTREAM_SECRET_ACCESS_KEY` and optionally `LITESTREAM_PATH` (default `journal`). Without
+  them the container just runs `node` as before, which keeps local Docker and self-hosting
+  unchanged.
+- Writes are uploaded every 10 seconds, with a full snapshot daily and 7 days of history.
+- **On boot**, an *empty* volume is restored from the latest backup before the app starts. An
+  existing database is never overwritten. If a backup exists but can't be read, the container
+  refuses to start rather than starting empty.
+- **Each environment needs its own `LITESTREAM_PATH`** (or bucket). Two deployments replicating
+  to the same path would mix their backups.
+- **Restore drill** (safe on the live container, writes to /tmp):
+  `litestream restore -config /etc/litestream.yml -o /tmp/restore-test.db /data/journal.db`,
+  then open it with `better-sqlite3` via `node -e` and count rows.
+- **The encryption key isn't in the backup.** Broker credentials are encrypted with
+  `/data/.secret` (or `JOURNAL_SECRET` when set). Litestream copies only the database, so keep a
+  copy of `.secret` in a password manager. Don't switch to `JOURNAL_SECRET` on an existing
+  install: data encrypted with the file key would stop decrypting.
+
 ## Working conventions for this repo
 
 - Don't commit or push unless explicitly asked. When asked to push and there's a natural way to

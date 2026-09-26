@@ -1,0 +1,20 @@
+# Continuous backup of the SQLite database to S3-compatible storage
+# (Cloudflare R2). Used only when LITESTREAM_BUCKET is set; see
+# docker-entrypoint.sh and CLAUDE.md "Backups". Litestream expands the
+# ${...} environment variables; its access keys come from
+# LITESTREAM_ACCESS_KEY_ID / LITESTREAM_SECRET_ACCESS_KEY.
+dbs:
+  - path: ${JOURNAL_DATA_DIR}/journal.db
+    replicas:
+      - type: s3
+        bucket: ${LITESTREAM_BUCKET}
+        path: ${LITESTREAM_PATH}
+        endpoint: ${LITESTREAM_ENDPOINT}
+        region: auto
+        force-path-style: true
+        # At most ~10 seconds of writes can be lost; also keeps uploads well
+        # inside R2's free monthly operations.
+        sync-interval: 10s
+        # A full snapshot daily; any point in the last 7 days is restorable.
+        snapshot-interval: 24h
+        retention: 168h

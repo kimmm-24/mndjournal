@@ -16,12 +16,18 @@ const LEGAL_LINKS = [
 export function MarketingFooter() {
   const year = new Date().getFullYear();
   return (
-    <footer className="border-t border-[#2a3245] bg-[#141820]">
+    <footer className="overflow-hidden border-t border-[#2a3245] bg-[#0b0d13]">
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div>
             <Link href="/" className="flex items-center gap-2.5">
-              <Image src="/logo.png" alt="mndjournal" width={262} height={238} className="h-8 w-auto" />
+              <Image
+                src="/logo.png"
+                alt="mndjournal"
+                width={262}
+                height={238}
+                className="h-8 w-auto"
+              />
               <span className="text-sm font-semibold tracking-tight text-white">mndjournal</span>
             </Link>
             <p className="mt-3 max-w-xs text-sm text-[#7d879e]">
@@ -31,7 +37,7 @@ export function MarketingFooter() {
           </div>
 
           <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-[#7d879e]">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#7d879e]">
               Produk
             </div>
             <ul className="mt-3 space-y-2.5">
@@ -49,7 +55,7 @@ export function MarketingFooter() {
           </div>
 
           <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-[#7d879e]">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#7d879e]">
               Legal
             </div>
             <ul className="mt-3 space-y-2.5">
@@ -67,7 +73,7 @@ export function MarketingFooter() {
           </div>
 
           <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-[#7d879e]">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#7d879e]">
               Kontak
             </div>
             <ul className="mt-3 space-y-2.5 text-sm text-[#9aa4b8]">
@@ -85,6 +91,13 @@ export function MarketingFooter() {
           © {year} mndjournal. Hak cipta dilindungi. mndjournal bukan broker dan tidak memberikan
           nasihat investasi.
         </div>
+      </div>
+      {/* Oversized wordmark, cropped by the page edge. */}
+      <div
+        aria-hidden
+        className="pointer-events-none -mb-[0.1em] select-none text-center text-[17vw] font-extrabold leading-none tracking-[-0.05em] text-[#141820] lg:text-[16rem]"
+      >
+        mndjournal
       </div>
     </footer>
   );

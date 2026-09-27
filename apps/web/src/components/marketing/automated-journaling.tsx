@@ -1,25 +1,28 @@
 import { Import, FileSpreadsheet, Landmark } from "lucide-react";
 import { PlanNote } from "./plan-note";
 import { TradesTableMockup } from "./trades-table-mockup";
+import { DISPLAY_H2, Eyebrow, Slant, TONE_LIGHT } from "./section-chrome";
 
 const FORMATS = ["Interactive Brokers (IBKR)", "MetaTrader", "ThinkOrSwim", "CSV generik"];
 
 export function AutomatedJournaling() {
   return (
-    <section className="bg-[#171c26] py-20 sm:py-24">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 sm:px-6 lg:grid-cols-2 lg:items-center lg:gap-16">
-        <div>
-          <PlanNote tone="pro">Perlu paket Pro atau lebih tinggi</PlanNote>
-          <h2 className="mt-4 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            Automated journaling
-          </h2>
-          <p className="mt-3 text-[#9aa4b8]">
+    <section className="relative overflow-hidden bg-[#0b0d13] pb-20 pt-28 sm:pb-28 sm:pt-36">
+      <Slant from={TONE_LIGHT} low="left" />
+      <div className="mx-auto grid max-w-6xl gap-12 px-4 sm:px-6 grid-cols-1 lg:grid-cols-12 lg:items-center lg:gap-10">
+        <div className="lg:col-span-5">
+          <Eyebrow n="03">Import & sync</Eyebrow>
+          <h2 className={`mt-5 ${DISPLAY_H2}`}>Automated journaling</h2>
+          <p className="mt-4 text-[#9aa4b8]">
             Berhenti mencatat trade satu per satu. Import langsung dari broker Anda lewat file CSV,
             atau sambungkan sinkronisasi otomatis — setiap fill masuk ke jurnal Anda tanpa entri
             manual.
           </p>
+          <div className="mt-5">
+            <PlanNote tone="pro">Perlu paket Pro atau lebih tinggi</PlanNote>
+          </div>
 
-          <ul className="mt-6 space-y-3">
+          <ul className="mt-8 space-y-3">
             <li className="flex items-start gap-3 text-sm text-[#c3cad9]">
               <FileSpreadsheet className="mt-0.5 h-5 w-5 shrink-0 text-[#4d8dff]" />
               <span>
@@ -41,7 +44,7 @@ export function AutomatedJournaling() {
           </ul>
 
           <div className="mt-6">
-            <div className="text-xs font-semibold uppercase tracking-wide text-[#7d879e]">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#7d879e]">
               Format yang didukung
             </div>
             <div className="mt-2.5 flex flex-wrap gap-2">
@@ -57,7 +60,15 @@ export function AutomatedJournaling() {
           </div>
         </div>
 
-        <TradesTableMockup />
+        <div className="relative lg:col-span-7">
+          <div
+            aria-hidden
+            className="absolute -inset-3 rounded-2xl bg-linear-to-bl from-[#4d8dff]/20 via-transparent to-transparent blur-xl"
+          />
+          <div className="relative">
+            <TradesTableMockup />
+          </div>
+        </div>
       </div>
     </section>
   );

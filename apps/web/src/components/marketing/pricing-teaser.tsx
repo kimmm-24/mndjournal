@@ -2,14 +2,22 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { PricingCards } from "./pricing-cards";
 import { TRIAL_DAYS } from "@/lib/plan";
+import { DISPLAY_H2, Eyebrow, Slant, TONE_LIGHT } from "./section-chrome";
 
 export function PricingTeaser() {
   return (
-    <section id="harga" className="scroll-mt-16 bg-[#141820] py-20 sm:py-24">
+    <section
+      id="harga"
+      className="relative scroll-mt-16 bg-[#0b0d13] pb-20 pt-28 sm:pb-28 sm:pt-36"
+    >
+      <Slant from={TONE_LIGHT} low="left" />
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">Harga</h2>
-          <p className="mt-3 text-[#9aa4b8]">
+        <div className="grid gap-6 grid-cols-1 lg:grid-cols-12 lg:items-end">
+          <div className="lg:col-span-7">
+            <Eyebrow n="07">Paket</Eyebrow>
+            <h2 className={`mt-5 ${DISPLAY_H2}`}>Harga</h2>
+          </div>
+          <p className="text-[#9aa4b8] lg:col-span-5">
             Coba gratis {TRIAL_DAYS} hari, lalu pilih paket. Bayar bulanan atau tahunan, tanpa
             perpanjangan otomatis.
           </p>
@@ -19,7 +27,7 @@ export function PricingTeaser() {
           <PricingCards billing="monthly" />
         </div>
 
-        <div className="mt-8 text-center">
+        <div className="mt-8">
           <Link
             href="/pricing"
             className="inline-flex items-center gap-1.5 text-sm font-medium text-[#4d8dff] hover:underline"

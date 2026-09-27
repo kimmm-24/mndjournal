@@ -10,12 +10,12 @@ const ROWS = [
 export function TradesTableMockup() {
   return (
     <BrowserFrame url="app.mndjournal.com/trades">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <span className="text-sm font-semibold text-white">Trades</span>
         <span className="text-[11px] text-[#7d879e]">110 trades diimpor</span>
       </div>
       <div className="mt-3 overflow-x-auto">
-        <table className="w-full min-w-[420px] text-left text-xs">
+        <table className="w-full min-w-[300px] whitespace-nowrap text-left text-xs">
           <thead className="text-[#7d879e]">
             <tr>
               {["Close date", "Symbol", "Status", "Net P&L"].map((h) => (

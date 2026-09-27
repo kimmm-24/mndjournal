@@ -6,6 +6,7 @@ import {
   Sparkles,
   Landmark,
 } from "lucide-react";
+import { DISPLAY_H2, Eyebrow, Slant, TONE_DARK } from "./section-chrome";
 
 const FEATURES = [
   {
@@ -42,28 +43,38 @@ const FEATURES = [
 
 export function FeaturesSection() {
   return (
-    <section id="fitur" className="scroll-mt-16 bg-[#141820] py-20 sm:py-24">
+    <section
+      id="fitur"
+      className="relative scroll-mt-16 bg-[#141820] pb-20 pt-28 sm:pb-28 sm:pt-36"
+    >
+      <Slant from={TONE_DARK} low="right" />
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            Semua yang Anda butuhkan, satu tempat
-          </h2>
-          <p className="mt-3 text-[#9aa4b8]">
+        <div className="grid gap-6 grid-cols-1 lg:grid-cols-12 lg:items-end">
+          <div className="lg:col-span-7">
+            <Eyebrow n="02">Fitur</Eyebrow>
+            <h2 className={`mt-5 ${DISPLAY_H2}`}>Semua yang Anda butuhkan, satu tempat</h2>
+          </div>
+          <p className="text-[#9aa4b8] lg:col-span-5">
             Dirancang untuk trader di semua instrumen — saham, forex, futures, crypto, gold, dan
             lainnya.
           </p>
         </div>
 
-        <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {FEATURES.map((feature) => (
+        <div className="mt-14 grid gap-px overflow-hidden rounded-2xl border border-[#2a3245] bg-[#2a3245] sm:grid-cols-2 lg:grid-cols-3">
+          {FEATURES.map((feature, i) => (
             <div
               key={feature.title}
-              className="rounded-xl border border-[#2a3245] bg-[#1c2230] p-6"
+              className="bg-[#141820] p-6 transition-colors hover:bg-[#171c26] sm:p-8"
             >
-              <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#4d8dff]/15">
-                <feature.icon className="h-5 w-5 text-[#4d8dff]" />
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-xs text-[#4d8dff]">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <feature.icon className="h-5 w-5 text-[#5b6478]" />
               </div>
-              <h3 className="mt-4 text-base font-semibold text-white">{feature.title}</h3>
+              <h3 className="mt-8 text-lg font-semibold tracking-tight text-white">
+                {feature.title}
+              </h3>
               <p className="mt-2 text-sm leading-relaxed text-[#9aa4b8]">{feature.body}</p>
             </div>
           ))}

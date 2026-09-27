@@ -13,9 +13,9 @@ import { PricingTeaser } from "@/components/marketing/pricing-teaser";
 import { FinalCta } from "@/components/marketing/final-cta";
 
 export const metadata: Metadata = {
-  title: "mndjournal — Jurnal Trading untuk Semua Jenis Trader Indonesia",
+  title: "mndjournal — AI Trading Journal untuk Trader Indonesia",
   description:
-    "Catat, analisa, dan tingkatkan performa trading Anda — saham, forex, futures, crypto, gold, dan lainnya — dengan journal, dashboard analytics, dan AI reflection yang dirancang untuk trader Indonesia.",
+    "AI yang membaca data trading Anda sendiri: recap harian, review tiap trade, dan tanya jawab dari histori Anda. Lengkap dengan journal dan dashboard analytics untuk saham, forex, futures, crypto, gold, dan lainnya.",
 };
 
 export default function LandingPage() {
@@ -25,12 +25,12 @@ export default function LandingPage() {
       <main>
         <Hero />
         <DashboardMockup />
+        <AiSpotlight />
         <FeaturesSection />
         <AutomatedJournaling />
         <AnalyticsSpotlight />
         <PlaybooksSpotlight />
         <ReplaySpotlight />
-        <AiSpotlight />
         <PricingTeaser />
         <FinalCta />
       </main>

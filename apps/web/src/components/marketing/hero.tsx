@@ -13,18 +13,18 @@ export function Hero() {
       />
       <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
         <span className="inline-flex items-center rounded-full border border-[#2a3245] bg-[#1c2230] px-3.5 py-1.5 text-xs font-medium text-[#9aa4b8]">
-          Trading journal untuk semua jenis trader Indonesia
+          AI trading journal untuk trader Indonesia
         </span>
 
         <h1 className="mt-6 text-4xl font-bold tracking-tight text-white sm:text-5xl">
-          Catat dan Tingkatkan{" "}
-          <span className="text-[#4d8dff]">Performa Trading</span> Anda
+          Berhenti Menebak. <br className="hidden sm:block" />
+          Biarkan AI Membongkar <span className="text-[#4d8dff]">Pola Trading Anda</span>.
         </h1>
 
         <p className="mx-auto mt-5 max-w-xl text-base text-[#9aa4b8] sm:text-lg">
-          Jurnal trading yang dirancang untuk trader Indonesia di semua instrumen — saham, forex,
-          futures, crypto, gold, dan lainnya — catat setiap posisi, pahami pola kemenangan Anda,
-          dan perbaiki strategi dengan data, bukan tebakan.
+          AI yang membaca histori trading Anda sendiri — recap harian, review tiap trade, dan tanya
+          jawab langsung dari data Anda. Untuk semua instrumen: saham, forex, futures, crypto, gold,
+          dan lainnya.
         </p>
 
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">

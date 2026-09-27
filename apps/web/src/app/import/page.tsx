@@ -21,7 +21,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { postJson, useApi } from "@/lib/use-api";
 import { decodeImportFile } from "@/lib/decode-import";
-import { formatTimestamp, isTimeZone } from "@/lib/timezone";
+import { formatTimestamp, isTimeZone, DEFAULT_TIME_ZONE } from "@/lib/timezone";
 import { dayKeyOf } from "@luxalgo/journal-core";
 import { TimeZonePicker } from "@/components/timezone-picker";
 import type { Plan } from "@/lib/plan";
@@ -149,7 +149,7 @@ function FileImport() {
   const [statementTimeZone, setStatementTimeZone] = useState<string | null>(null);
   const timeZone = statementTimeZone ?? settingsData?.importTimeZone ?? "";
   const validTimeZone = isTimeZone(timeZone);
-  const displayTimeZone = settingsData?.timeZone ?? "UTC";
+  const displayTimeZone = settingsData?.timeZone ?? DEFAULT_TIME_ZONE;
 
   const onFile = async (file: File) => {
     if (!validTimeZone) return;

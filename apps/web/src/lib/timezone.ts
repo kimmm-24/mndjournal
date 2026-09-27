@@ -1,3 +1,10 @@
+/**
+ * The journal time zone for users who never picked one: WIB, since the app is
+ * built for Indonesian traders. Trade days, calendar days, hour buckets and
+ * imports without an offset all follow it until the user saves another.
+ */
+export const DEFAULT_TIME_ZONE = "Asia/Jakarta";
+
 /** Validate user-supplied zones before parsing or saving any timestamps. */
 export const isTimeZone = (value: unknown): value is string => {
   if (typeof value !== "string" || !value.trim()) return false;

@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Skeleton } from "./ui/skeleton";
 import { useI18n, useT } from "./i18n";
+import { DEFAULT_TIME_ZONE } from "@/lib/timezone";
 
 const RollingTradeChart = dynamic(
   () => import("./charts/rolling-trade-chart").then((module) => module.RollingTradeChart),
@@ -36,7 +37,7 @@ export function PerformanceTrendsReport({ query }: { query: string }) {
   const dateFormat = useMemo(
     () =>
       new Intl.DateTimeFormat(dateLocale, {
-        timeZone: data?.timeZone ?? "UTC",
+        timeZone: data?.timeZone ?? DEFAULT_TIME_ZONE,
         dateStyle: "medium",
         timeStyle: "short",
       }),

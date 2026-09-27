@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db, settings } from "@/db";
 import { decryptJson, encryptJson } from "./crypto";
 import { EMPTY_DEFAULTS, type JournalDefaults } from "@/lib/journal-defaults";
+import { DEFAULT_TIME_ZONE } from "@/lib/timezone";
 import {
   AI_DEFAULT_MODELS,
   isAiProvider,
@@ -48,7 +49,8 @@ export const deleteSetting = (key: string, userId?: string): void => {
 };
 
 /** Journal display timezone (IANA), default UTC. */
-export const getTimeZone = (userId?: string): string => getSetting("timeZone", userId) ?? "UTC";
+export const getTimeZone = (userId?: string): string =>
+  getSetting("timeZone", userId) ?? DEFAULT_TIME_ZONE;
 
 /** Preserve the legacy parsing default until a separate import zone is saved. */
 export const getImportTimeZone = (userId?: string): string =>

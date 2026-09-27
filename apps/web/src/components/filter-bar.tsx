@@ -15,11 +15,12 @@ import { FilterFields } from "./filter-fields";
 import { SlidersHorizontal } from "lucide-react";
 import { AccountSelector } from "./account-selector";
 import { useT } from "./i18n";
+import { DEFAULT_TIME_ZONE } from "@/lib/timezone";
 export const useFilters = () => {
   const params = useSearchParams();
   const { data } = useApi<{ timeZone: string }>("/api/settings");
   const range = params.get("range") ?? "all",
-    timeZone = data?.timeZone ?? "UTC";
+    timeZone = data?.timeZone ?? DEFAULT_TIME_ZONE;
   return useMemo(() => {
     const f = readFilters(new URLSearchParams(params.toString()));
     const today = dayKeyOf(new Date().toISOString(), timeZone);

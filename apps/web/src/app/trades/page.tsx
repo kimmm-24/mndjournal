@@ -28,6 +28,7 @@ import Loading from "@/app/loading";
 import { postJson, useApi } from "@/lib/use-api";
 import { cn, fmtDuration, fmtMoney, fmtNumber, fmtPercent } from "@/lib/utils";
 import { useT } from "@/components/i18n";
+import { DEFAULT_TIME_ZONE } from "@/lib/timezone";
 
 interface TradeRow {
   key: string;
@@ -78,7 +79,7 @@ function Trades() {
   }>(`/api/trades?view=list&${query}`);
   const router = useRouter();
   const t = useT("trades");
-  const timeZone = data?.timeZone ?? "UTC";
+  const timeZone = data?.timeZone ?? DEFAULT_TIME_ZONE;
   const [tagInput, setTagInput] = useState("");
   const [showColumns, setShowColumns] = useState(false);
   const [page, setPage] = useState(0);

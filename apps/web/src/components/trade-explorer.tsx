@@ -21,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { OptionSelect } from "./ui/option-select";
 import { Skeleton } from "./ui/skeleton";
 import { useI18n, useT } from "./i18n";
+import { DEFAULT_TIME_ZONE } from "@/lib/timezone";
 
 const TradeScatter = dynamic(
   () => import("./charts/trade-scatter").then((module) => module.TradeScatter),
@@ -52,7 +53,7 @@ export function TradeExplorer({ query }: { query: string }) {
   const date = useMemo(
     () =>
       new Intl.DateTimeFormat(dateLocale, {
-        timeZone: data?.timeZone ?? "UTC",
+        timeZone: data?.timeZone ?? DEFAULT_TIME_ZONE,
         dateStyle: "medium",
         timeStyle: "short",
       }),

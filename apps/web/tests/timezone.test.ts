@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { dayKeyOf } from "@luxalgo/journal-core";
-import { formatTimestamp, isTimeZone } from "../src/lib/timezone";
+import { DEFAULT_TIME_ZONE, formatTimestamp, isTimeZone } from "../src/lib/timezone";
 
 const scratch = mkdtempSync(join(tmpdir(), "journal-timezone-"));
 vi.stubEnv("JOURNAL_DATA_DIR", scratch);
@@ -24,6 +24,7 @@ const {
 const setSetting = (key: string, value: string) => setSettingRaw(key, value, TEST_USER);
 const getTimeZone = () => getTimeZoneRaw(TEST_USER);
 const getImportTimeZone = () => getImportTimeZoneRaw(TEST_USER);
+const { insertExecutions } = await import("../src/server/executions");
 const { POST: importFile } = await import("../src/app/api/import/route");
 const { GET: getSettings, PATCH: patchSettings } = await import("../src/app/api/settings/route");
 const { GET: stats } = await import("../src/app/api/stats/route");
@@ -55,7 +56,13 @@ beforeEach(() => {
   db.delete(settings).run();
   db.delete(accounts).run();
   db.insert(accounts)
-    .values({ id: "test", userId: "test-user", name: "Timezone test", kind: "import", createdAt: "2026-01-01" })
+    .values({
+      id: "test",
+      userId: "test-user",
+      name: "Timezone test",
+      kind: "import",
+      createdAt: "2026-01-01",
+    })
     .run();
 });
 afterEach(() => vi.useRealTimers());
@@ -66,8 +73,41 @@ afterAll(() => {
 });
 
 describe("statement and display timezones are independent", () => {
+  it("defaults both zones to WIB and puts an 18:00 UTC trade on the next WIB day", async () => {
+    expect(getTimeZone()).toBe("Asia/Jakarta");
+    expect(getImportTimeZone()).toBe("Asia/Jakarta");
+    expect(await (await getSettings()).json()).toMatchObject({
+      timeZone: "Asia/Jakarta",
+      importTimeZone: "Asia/Jakarta",
+    });
+    insertExecutions(
+      "test",
+      [
+        {
+          symbol: "XAUUSD",
+          side: "buy",
+          quantity: 1,
+          price: 2650,
+          executedAt: "2026-07-03T17:30:00Z",
+          fee: 0,
+        },
+        {
+          symbol: "XAUUSD",
+          side: "sell",
+          quantity: 1,
+          price: 2655,
+          executedAt: "2026-07-03T18:00:00Z",
+          fee: 0,
+        },
+      ],
+      "manual",
+    );
+    // 18:00 UTC on 3 July is 01:00 WIB on 4 July.
+    expect((await (await journal(request("journal"))).json()).days[0].date).toBe("2026-07-04");
+  });
+
   it("preserves legacy import behavior when only the display timezone changes", async () => {
-    expect(getImportTimeZone()).toBe("UTC");
+    expect(getImportTimeZone()).toBe(DEFAULT_TIME_ZONE);
     setSetting("timeZone", "Europe/Helsinki");
     expect(getImportTimeZone()).toBe("Europe/Helsinki");
     expect((await save({ timeZone: "America/Asuncion" })).status).toBe(200);

@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 
 // The hero's product demo: a looping motion graphic of the app (dark mode). Files live in
-// public/media. The video's edges are exactly the hero background (#141820), so it sits on
-// the page without a frame; the angled hand-off into the AI section starts below it.
+// public/media. On phones the still sits in a bordered panel; from sm up the video's edges
+// (exactly #141820) blend into the page with no frame. The angled hand-off starts below it.
 //
 // The video (4-5 MB) is only mounted where it plays: at sm (640px) and wider, with motion
 // allowed. Phones and reduced-motion visitors get the still image and never request the video.
@@ -23,8 +23,8 @@ export function HeroVideo() {
 
   return (
     <div className="relative -mt-24 sm:-mt-36">
-      <div className="relative mx-auto max-w-6xl px-2 sm:px-6">
-        <div className="relative aspect-video">
+      <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
+        <div className="relative aspect-video overflow-hidden rounded-2xl border border-[#2a3245] bg-[#141820] shadow-2xl shadow-black/40 sm:overflow-visible sm:rounded-none sm:border-0 sm:shadow-none">
           {/* The image the server sends. The browser downloads only the source that matches:
               the video's first frame where the video will play, the full still elsewhere. */}
           <picture>
